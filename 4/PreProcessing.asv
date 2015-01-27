@@ -1,0 +1,75 @@
+if (~exist('TTNonRep','var'))
+    load('FixedData.mat')
+end
+
+
+SECONDS_IN_WINDOW = 100;
+TICKS_IN_SECOND = 10000;
+TICKS_IN_WINDOW = TICKS_IN_SECOND * SECONDS_IN_WINDOW;
+STIMULI_PER_SECOND = 1/30;
+STIMULUS_EACH_TICKS = floor(TICKS_IN_SECOND*STIMULI_PER_SECOND); %333
+STIMULI_PER_WINDOW = SECONDS_IN_WINDOW / STIMULI_PER_SECOND; %3000 stims for 100 secs
+
+ITERATIONS = length(StimTimeNonRep);
+
+SAFETY_SIZE_SUFFIX = 1000; %actually the max is 3725
+simulation.all = NaN((STIMULI_PER_WINDOW+SAFETY_SIZE_SUFFIX)*ITERATIONS, 3);
+
+lastIterationIndex = 0;
+
+for iIteration = 2:ITERATIONS
+    fprintf('processing iteration #%i/#%i ...\n', iIteration, ITERATIONS);
+    
+    %Normalize stim time to start from 1
+    iEnd = iIteration;
+    iStart = iEnd-1; 
+    
+    StimTimeNonRepNorm=StimTimeNonRep-StimTimeNonRep(iStart);
+    iteration.time= (StimTimeNonRepNorm(iStart)+1:1:StimTimeNonRepNorm(iEnd)+1)'; %first 100 secs
+
+    actualWindowLength = StimTimeNonRep(iEnd)-StimTimeNonRep(iStart)+1;
+
+    %window stim values by time
+    stimValues= StimulusNonRep(1:STIMULI_PER_WINDOW);
+    stimValues = repmat(stimValues,2,1);
+
+    iteration.stimuli = NaN(actualWindowLength,1);
+    stimTimes = 1:STIMULUS_EACH_TICKS:actualWindowLength;
+    iteration.stimuli(stimTimes)=stimValues(1:length(stimTimes));
+
+    timeOfAPs=TTNonRep(1).sp; %time of Aps
+
+    onset = StimTimeNonRep(iStart)+1;
+    next_onset = StimTimeNonRep(iEnd)+1;
+    %{
+            Change from time scale into discrete indexes and 
+            filter by AP occurences
+
+            logical() is required to transform binary vector to a valid filter.
+            %}
+    indexes = 1:length(timeOfAPs);
+    filter = logical(timeOfAPs(:) >= onset & timeOfAPs(:) < next_onset);
+    indexesOfAPs = indexes(filter);
+
+    %we have any APs
+    %if(~isempty(indexesOfAPs))
+
+    iteration.APs = zeros(actualWindowLength,1);
+    %normalize the APs, to the start of window
+    APsInWindow = timeOfAPs(indexesOfAPs)-onset + 1; %the index is 1 based
+    iteration.APs(APsInWindow)=1;
+
+    %% finally, get
+    all = zeros(actualWindowLength, 3);
+    all(:,1) = iteration.time + onset;
+    all(:,2) = iteration.stimuli;
+    all(:,3) = iteration.APs;
+
+    iteration.all = all(all(:,2) > 0 | all(:,3) > 0,:);
+    nextIterationIndex = lastIterationIndex + length(iteration.all) + 1;
+    simulation.all(lastIterationIndex+1:nextIterationIndex-1,:) = iteration.all;
+    lastIterationIndex = nextIterationIndex+1;
+end
+
+a(isnan(a(:,1)) & isnan(a(:,2)) & isnan(a(:,1)),3)=[];
+
