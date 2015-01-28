@@ -2,6 +2,10 @@ if (~exist('TTNonRep','var'))
     load('FixedData.mat')
 end
 
+clear Simulation;
+Simulation.Mode = 'NonRep';
+Simulation.Neuron = cell(1,length(TTNonRep));
+
 SECONDS_IN_WINDOW = 100;
 TICKS_IN_SECOND = 10000;
 TICKS_IN_WINDOW = TICKS_IN_SECOND * SECONDS_IN_WINDOW;
@@ -16,7 +20,6 @@ ITERATIONS = ITERATIONS-2; %we ignore the last 2 chunks because it has partial s
 SAFETY_SIZE_SUFFIX = 1000; %actually the max is 3725
 
         
-Neuron = cell(1,length(TTNonRep));
 for iNeuron = 1:length(TTNonRep)
     
 
@@ -25,7 +28,7 @@ for iNeuron = 1:length(TTNonRep)
     lastIterationSimuliIndex = 0;
     
     for iIteration = 2:ITERATIONS
-        fprintf('[N:#%i] processing iteration #%i/#%i ...\n', iNeuron, iIteration, ITERATIONS);
+        %fprintf('[N:#%i] processing iteration #%i/#%i ...\n', iNeuron, iIteration, ITERATIONS);
 
         %Normalize stim time to start from 1
         iEnd = iIteration;
@@ -79,7 +82,7 @@ for iNeuron = 1:length(TTNonRep)
     end %iIteration
 
     %remove NaN rows
-    Neuron{iNeuron} = simulation.all(any(~isnan(simulation.all),2),:);
+    Simulation.Neuron{iNeuron} = simulation.all(any(~isnan(simulation.all),2),:);
 end %iNeuron
 
 

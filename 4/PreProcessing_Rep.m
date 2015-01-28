@@ -5,6 +5,10 @@ if (~exist('TTRep','var'))
     StimTimeRep = StimTimeRep(1:2:end); 
 end
 
+clear Simulation;
+Simulation.Mode = 'Rep';
+Simulation.Neuron = cell(1,length(TTRep));
+
 SECONDS_IN_WINDOW = 200;
 TICKS_IN_SECOND = 10000;
 TICKS_IN_WINDOW = TICKS_IN_SECOND * SECONDS_IN_WINDOW;
@@ -23,7 +27,6 @@ globalStimValues = repmat(globalStimValues,2,1);
 
 maxstimTimes = 0;
 
-Neuron = cell(1,length(TTRep));
 for iNeuron = 1:length(TTRep)
     
 
@@ -81,5 +84,5 @@ for iNeuron = 1:length(TTRep)
     end %iIteration
 
     %remove NaN rows
-    Neuron{iNeuron} = simulation.all(any(~isnan(simulation.all),2),:);
+    Simulation.Neuron{iNeuron} = simulation.all(any(~isnan(simulation.all),2),:);
 end %iNeuron

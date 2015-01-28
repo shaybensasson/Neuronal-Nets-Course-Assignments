@@ -5,6 +5,8 @@ if (~exist('TTRep','var'))
     StimTimeRep = StimTimeRep(1:2:end); 
 end
 
+Simulation.Mode = 'NonRep';
+
 SECONDS_IN_WINDOW = 200;
 TICKS_IN_SECOND = 10000;
 TICKS_IN_WINDOW = TICKS_IN_SECOND * SECONDS_IN_WINDOW;
@@ -15,12 +17,14 @@ STIMULI_PER_WINDOW = SECONDS_IN_WINDOW / STIMULI_PER_SECOND; %6000 stims for 200
 NEURONS = length(TTRep);
 ITERATIONS = length(StimTimeRep);
 
-SAFETY_SIZE_SUFFIX = 1000; %actually the max is 3725
+SAFETY_SIZE_SUFFIX = 10; %actually the max is 6008
 
 %window stim values by time, warming it up, to improve prefs
 globalStimValues = StimulusRep(1:STIMULI_PER_WINDOW);
 globalStimValues = repmat(globalStimValues,2,1);
-        
+
+maxstimTimes = 0;
+
 Neuron = cell(1,length(TTRep));
 for iNeuron = 1:length(TTRep)
     
@@ -35,14 +39,16 @@ for iNeuron = 1:length(TTRep)
         iStart = iEnd-1; 
 
         StimTimeRepNorm=StimTimeRep-StimTimeRep(iStart);
-        iteration.time= (StimTimeRepNorm(iStart)+1:1:StimTimeRepNorm(iEnd)+1)'; %first 100 secs
+        iteration.time= (StimTimeRepNorm(iStart)+1:1:StimTimeRepNorm(iEnd)+1)'; %first 200 secs
 
         actualWindowLength = StimTimeRep(iEnd)-StimTimeRep(iStart)+1;
 
         
+        %copy global var
         stimValues = globalStimValues(:);
         iteration.stimuli = NaN(actualWindowLength,1);
         stimTimes = 1:STIMULUS_EACH_TICKS:actualWindowLength;
+        maxstimTimes = max(maxstimTimes, length(stimTimes));
         iteration.stimuli(stimTimes)=stimValues(1:length(stimTimes));
 
         timeOfAPs=TTRep(iNeuron).sp; %time of Aps
@@ -58,9 +64,6 @@ for iNeuron = 1:length(TTRep)
         indexes = 1:length(timeOfAPs);
         filter = logical(timeOfAPs(:) >= onset & timeOfAPs(:) < next_onset);
         indexesOfAPs = indexes(filter);
-
-        %we have any APs
-        %if(~isempty(indexesOfAPs))
 
         iteration.APs = zeros(actualWindowLength,1);
         %normalize the APs, to the start of window
@@ -82,8 +85,3 @@ for iNeuron = 1:length(TTRep)
     %remove NaN rows
     Neuron{iNeuron} = simulation.all(any(~isnan(simulation.all),2),:);
 end %iNeuron
-
-
-
-
-
