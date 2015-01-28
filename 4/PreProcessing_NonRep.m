@@ -2,9 +2,7 @@ if (~exist('TTNonRep','var'))
     load('FixedData.mat')
 end
 
-clear Simulation;
-Simulation.Mode = 'NonRep';
-Simulation.Neuron = cell(1,length(TTNonRep));
+SAVE_MAT_FILE = 1;
 
 SECONDS_IN_WINDOW = 100;
 TICKS_IN_SECOND = 10000;
@@ -19,6 +17,13 @@ ITERATIONS = ITERATIONS-2; %we ignore the last 2 chunks because it has partial s
 
 SAFETY_SIZE_SUFFIX = 1000; %actually the max is 3725
 
+clear Simulation;
+Simulation.Mode = 'NonRep';
+Simulation.Neuron = cell(1,length(TTNonRep));
+Simulation.StimTimeNonRep = StimTimeNonRep;
+Simulation.ITERATIONS = ITERATIONS;
+Simulation.SECONDS_IN_WINDOW = SECONDS_IN_WINDOW;
+Simulation.TICKS_IN_WINDOW = TICKS_IN_WINDOW;
         
 for iNeuron = 1:length(TTNonRep)
     
@@ -52,8 +57,8 @@ for iNeuron = 1:length(TTNonRep)
 
         timeOfAPs=TTNonRep(iNeuron).sp; %time of Aps
 
-        onset = StimTimeNonRep(iStart)+1;
-        next_onset = StimTimeNonRep(iEnd)+1;
+        onset = StimTimeNonRep(iStart);
+        next_onset = StimTimeNonRep(iEnd);
         %{
                 Change from time scale into discrete indexes and 
                 filter by AP occurences
@@ -85,7 +90,10 @@ for iNeuron = 1:length(TTNonRep)
     Simulation.Neuron{iNeuron} = simulation.all(any(~isnan(simulation.all),2),:);
 end %iNeuron
 
-
+if (SAVE_MAT_FILE)
+    fprintf('Saving simulation output ...\n');
+    save('PreProcessed_NonRep.mat', 'Simulation');
+end
 
 
 

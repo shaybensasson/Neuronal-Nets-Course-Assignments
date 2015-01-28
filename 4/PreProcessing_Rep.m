@@ -5,9 +5,7 @@ if (~exist('TTRep','var'))
     StimTimeRep = StimTimeRep(1:2:end); 
 end
 
-clear Simulation;
-Simulation.Mode = 'Rep';
-Simulation.Neuron = cell(1,length(TTRep));
+SAVE_MAT_FILE = 1;
 
 SECONDS_IN_WINDOW = 200;
 TICKS_IN_SECOND = 10000;
@@ -26,6 +24,14 @@ globalStimValues = StimulusRep(1:STIMULI_PER_WINDOW);
 globalStimValues = repmat(globalStimValues,2,1);
 
 maxstimTimes = 0;
+
+clear Simulation;
+Simulation.Mode = 'Rep';
+Simulation.Neuron = cell(1,length(TTRep));
+Simulation.StimTimeRep = StimTimeRep;
+Simulation.ITERATIONS = ITERATIONS;
+Simulation.SECONDS_IN_WINDOW = SECONDS_IN_WINDOW;
+Simulation.TICKS_IN_WINDOW = TICKS_IN_WINDOW;
 
 for iNeuron = 1:length(TTRep)
     
@@ -54,8 +60,8 @@ for iNeuron = 1:length(TTRep)
 
         timeOfAPs=TTRep(iNeuron).sp; %time of Aps
 
-        onset = StimTimeRep(iStart)+1;
-        next_onset = StimTimeRep(iEnd)+1;
+        onset = StimTimeRep(iStart);
+        next_onset = StimTimeRep(iEnd);
         %{
                 Change from time scale into discrete indexes and 
                 filter by AP occurences
@@ -86,3 +92,8 @@ for iNeuron = 1:length(TTRep)
     %remove NaN rows
     Simulation.Neuron{iNeuron} = simulation.all(any(~isnan(simulation.all),2),:);
 end %iNeuron
+
+if (SAVE_MAT_FILE)
+    fprintf('Saving simulation output ...\n');
+    save('PreProcessed_Rep.mat', 'Simulation');
+end
