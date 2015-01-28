@@ -24,6 +24,7 @@ Simulation.StimTimeNonRep = StimTimeNonRep;
 Simulation.ITERATIONS = ITERATIONS;
 Simulation.SECONDS_IN_WINDOW = SECONDS_IN_WINDOW;
 Simulation.TICKS_IN_WINDOW = TICKS_IN_WINDOW;
+Simulation.TICKS_IN_SECOND = TICKS_IN_SECOND;
         
 for iNeuron = 1:length(TTNonRep)
     
