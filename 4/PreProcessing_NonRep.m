@@ -11,12 +11,10 @@ STIMULI_PER_WINDOW = SECONDS_IN_WINDOW / STIMULI_PER_SECOND; %3000 stims for 100
 
 NEURONS = length(TTNonRep);
 ITERATIONS = length(StimTimeNonRep);
+ITERATIONS = ITERATIONS-2; %we ignore the last 2 chunks because it has partial stimuli values
 
 SAFETY_SIZE_SUFFIX = 1000; %actually the max is 3725
 
-%window stim values by time, warming it up, to improve prefs
-globalStimValues = StimulusNonRep(1:STIMULI_PER_WINDOW);
-globalStimValues = repmat(globalStimValues,2,1);
         
 Neuron = cell(1,length(TTNonRep));
 for iNeuron = 1:length(TTNonRep)
@@ -24,8 +22,10 @@ for iNeuron = 1:length(TTNonRep)
 
     simulation.all = NaN((STIMULI_PER_WINDOW+SAFETY_SIZE_SUFFIX)*ITERATIONS, 3);
     lastIterationIndex = 0;
+    lastIterationSimuliIndex = 0;
+    
     for iIteration = 2:ITERATIONS
-        %fprintf('[N:#%i] processing iteration #%i/#%i ...\n', iNeuron, iIteration, ITERATIONS);
+        fprintf('[N:#%i] processing iteration #%i/#%i ...\n', iNeuron, iIteration, ITERATIONS);
 
         %Normalize stim time to start from 1
         iEnd = iIteration;
@@ -37,10 +37,15 @@ for iNeuron = 1:length(TTNonRep)
         actualWindowLength = StimTimeNonRep(iEnd)-StimTimeNonRep(iStart)+1;
 
         
+        %window stim values by time, warming it up, to improve prefs
+        stimTimes = 1:STIMULUS_EACH_TICKS:actualWindowLength;
+        nextIterationSimuliIndex = lastIterationSimuliIndex + length(stimTimes) + 1;
+        globalStimValues = StimulusNonRep(lastIterationSimuliIndex+1:nextIterationSimuliIndex-1,:);
+        lastIterationSimuliIndex = nextIterationSimuliIndex+1;
+        
         stimValues = globalStimValues(:);
         iteration.stimuli = NaN(actualWindowLength,1);
-        stimTimes = 1:STIMULUS_EACH_TICKS:actualWindowLength;
-        iteration.stimuli(stimTimes)=stimValues(1:length(stimTimes));
+        iteration.stimuli(stimTimes)=stimValues;
 
         timeOfAPs=TTNonRep(iNeuron).sp; %time of Aps
 
@@ -55,9 +60,6 @@ for iNeuron = 1:length(TTNonRep)
         indexes = 1:length(timeOfAPs);
         filter = logical(timeOfAPs(:) >= onset & timeOfAPs(:) < next_onset);
         indexesOfAPs = indexes(filter);
-
-        %we have any APs
-        %if(~isempty(indexesOfAPs))
 
         iteration.APs = zeros(actualWindowLength,1);
         %normalize the APs, to the start of window
