@@ -8,7 +8,7 @@ SECONDS_IN_WINDOW = 100;
 TICKS_IN_SECOND = 10000;
 TICKS_IN_WINDOW = TICKS_IN_SECOND * SECONDS_IN_WINDOW;
 STIMULI_PER_SECOND = 1/30;
-STIMULUS_EACH_TICKS = floor(TICKS_IN_SECOND*STIMULI_PER_SECOND); %333
+STIMULUS_EACH_TICKS = TICKS_IN_SECOND*STIMULI_PER_SECOND; %333.333
 STIMULI_PER_WINDOW = SECONDS_IN_WINDOW / STIMULI_PER_SECOND; %3000 stims for 100 secs
 
 NEURONS = length(TTNonRep);
@@ -25,6 +25,8 @@ Simulation.ITERATIONS = ITERATIONS;
 Simulation.SECONDS_IN_WINDOW = SECONDS_IN_WINDOW;
 Simulation.TICKS_IN_WINDOW = TICKS_IN_WINDOW;
 Simulation.TICKS_IN_SECOND = TICKS_IN_SECOND;
+Simulation.STIMULUS_EACH_TICKS = STIMULUS_EACH_TICKS;
+
         
 for iNeuron = 1:length(TTNonRep)
     
@@ -47,7 +49,7 @@ for iNeuron = 1:length(TTNonRep)
 
         
         %window stim values by time, warming it up, to improve prefs
-        stimTimes = 1:STIMULUS_EACH_TICKS:actualWindowLength;
+        stimTimes = 1:floor(STIMULUS_EACH_TICKS):actualWindowLength;
         nextIterationSimuliIndex = lastIterationSimuliIndex + length(stimTimes) + 1;
         globalStimValues = StimulusNonRep(lastIterationSimuliIndex+1:nextIterationSimuliIndex-1,:);
         lastIterationSimuliIndex = nextIterationSimuliIndex+1;

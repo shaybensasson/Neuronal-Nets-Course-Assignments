@@ -11,7 +11,7 @@ SECONDS_IN_WINDOW = 200;
 TICKS_IN_SECOND = 10000;
 TICKS_IN_WINDOW = TICKS_IN_SECOND * SECONDS_IN_WINDOW;
 STIMULI_PER_SECOND = 1/30;
-STIMULUS_EACH_TICKS = floor(TICKS_IN_SECOND*STIMULI_PER_SECOND); %333
+STIMULUS_EACH_TICKS = TICKS_IN_SECOND*STIMULI_PER_SECOND; %333.333
 STIMULI_PER_WINDOW = SECONDS_IN_WINDOW / STIMULI_PER_SECOND; %6000 stims for 200 secs
 
 NEURONS = length(TTRep);
@@ -33,6 +33,7 @@ Simulation.ITERATIONS = ITERATIONS;
 Simulation.SECONDS_IN_WINDOW = SECONDS_IN_WINDOW;
 Simulation.TICKS_IN_WINDOW = TICKS_IN_WINDOW;
 Simulation.TICKS_IN_SECOND = TICKS_IN_SECOND;
+Simulation.STIMULUS_EACH_TICKS = STIMULUS_EACH_TICKS;
 
 for iNeuron = 1:length(TTRep)
     
@@ -55,7 +56,7 @@ for iNeuron = 1:length(TTRep)
         %copy global var
         stimValues = globalStimValues(:);
         iteration.stimuli = NaN(actualWindowLength,1);
-        stimTimes = 1:STIMULUS_EACH_TICKS:actualWindowLength;
+        stimTimes = 1:floor(STIMULUS_EACH_TICKS):actualWindowLength;
         maxstimTimes = max(maxstimTimes, length(stimTimes));
         iteration.stimuli(stimTimes)=stimValues(1:length(stimTimes));
 
