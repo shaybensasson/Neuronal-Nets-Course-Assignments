@@ -1,6 +1,6 @@
 close all;
 
-%choose Rep or NonRep
+%works with Rep only
 MODE = 'Rep';
 
 if (~exist('Simulation','var') || (~strcmp(Simulation.Mode,MODE)))
@@ -31,7 +31,6 @@ for iNeuron=1:NEURONS
 
     %get stims and their times
     stimAndTimes = data(~isnan(data(:,2)), 1:2);
-
 
 
     %accumulate all Spike Triggered stimuli for every spike
