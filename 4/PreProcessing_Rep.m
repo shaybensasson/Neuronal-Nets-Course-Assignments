@@ -15,15 +15,13 @@ STIMULUS_EACH_TICKS = TICKS_IN_SECOND*STIMULI_PER_SECOND; %333.333
 STIMULI_PER_WINDOW = SECONDS_IN_WINDOW / STIMULI_PER_SECOND; %6000 stims for 200 secs
 
 NEURONS = length(TTRep);
-ITERATIONS = length(StimTimeRep);
+ITERATIONS = length(StimTimeRep); %NOTE: each ITERATION is a repetition
 
 SAFETY_SIZE_SUFFIX = 10; %actually the max is 6008
 
 %window stim values by time, warming it up, to improve prefs
 globalStimValues = StimulusRep(1:STIMULI_PER_WINDOW);
 globalStimValues = repmat(globalStimValues,2,1);
-
-maxstimTimes = 0;
 
 clear Simulation;
 Simulation.Mode = 'Rep';
@@ -55,11 +53,14 @@ for iNeuron = 1:length(TTRep)
         
         %copy global var
         stimValues = globalStimValues(:);
-        iteration.stimuli = NaN(actualWindowLength,1);
+        
+	%% get stim values of the current repeating window        
+	iteration.stimuli = NaN(actualWindowLength,1);
+	
         stimTimes = 1:floor(STIMULUS_EACH_TICKS):actualWindowLength;
-        maxstimTimes = max(maxstimTimes, length(stimTimes));
         iteration.stimuli(stimTimes)=stimValues(1:length(stimTimes));
 
+	%% get aps of the current repeating window        
         timeOfAPs=TTRep(iNeuron).sp; %time of Aps
 
         onset = StimTimeRep(iStart);

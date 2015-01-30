@@ -10,7 +10,7 @@ end
 
 NEURONS=length(Simulation.Neuron); 
 
-STA_WINDOW_IN_MS = 500;
+STA_WINDOW_IN_MS = 1000;
 STA_WINDOW_IN_SEC = STA_WINDOW_IN_MS/1000;
 STA_WINDOW_IN_TICKS = STA_WINDOW_IN_SEC*Simulation.TICKS_IN_SECOND;
 
@@ -49,22 +49,45 @@ for iNeuron=1:NEURONS
     accSTAStims = NaN(NUM_OF_APS, STIMS_IN_STA_WINDOW);
     totalAPs = 0;
     
+    %NOTE: the rep window checking and validation can be removed, just here
+    %to check a bug
+    idxRepWindow = 1;
+    
     for iAP=1:NUM_OF_APS %for every AP
         
+        timeOfAP = apsTimes(iAP,1);
+        timeOfRepWindow = Simulation.StimTimeRep(idxRepWindow);
+        timeOfRepNextWindow = Simulation.StimTimeRep(idxRepWindow+1);
+                
         %get Spike Triggered stims
         idxOfAP = apsTimes(iAP,2);
-        windowStims = data(idxOfAP-SAFETY_WINDOW_TO_THE_PAST:idxOfAP-1, 2);
-        windowStims(isnan(windowStims(:)))=[];
-        windowStims = windowStims(find(windowStims, STIMS_IN_STA_WINDOW, 'last'));
+        apWindowStims = data(idxOfAP-SAFETY_WINDOW_TO_THE_PAST:idxOfAP-1, [1 2]);
+        apWindowStims(isnan(apWindowStims(:,2)), :)=[];
+        apWindowStims = apWindowStims(find(apWindowStims(:,2), STIMS_IN_STA_WINDOW, 'last'),:);
         
-        accSTAStims(iAP,:) = windowStims';
+        if (apWindowStims(1,1)<timeOfRepWindow) %discard stims before  rep window starts
+            continue;
+        end
+        
         
         %count the next bin (AP time + STA_WINDOW_IN_TICKS) APs
         apBin = data(idxOfAP:idxOfAP+SAFETY_WINDOW_TO_THE_PAST,[1 3]);
         apBin(apBin(:,1)<apBin(1,1)+STA_WINDOW_IN_TICKS,:)=[];
+        
+        if (apBin(end,1)>=timeOfRepNextWindow) %discard stims after rep window ends
+            %go to next repeating window if we're after it
+            idxRepWindow = idxRepWindow+1;
+            continue;
+        end
+        
+        accSTAStims(iAP,:) = apWindowStims(:,2)';
         accAPs(iAP) = length(apBin(apBin==1));
         totalAPs = totalAPs+accAPs(iAP);
     end
+    
+	%clear nans
+    accSTAStims(all(isnan(accSTAStims),2),:)=[];
+    accAPs(all(isnan(accAPs),2),:)=[];
     
     %normalize
     accSTAStims = accSTAStims-mean(mean(accSTAStims,1));

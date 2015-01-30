@@ -1,7 +1,7 @@
 close all;
 
 %works with Rep only
-MODE = 'Rep';
+MODE = 'NonRep';
 
 if (~exist('Simulation','var') || (~strcmp(Simulation.Mode,MODE)))
     clearvars -except MODE;
