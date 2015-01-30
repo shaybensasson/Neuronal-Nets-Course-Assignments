@@ -107,6 +107,6 @@ for iNeuron=1:NEURONS
     ylabel('Light levels');
 end
 
-load gong 
-sound(y,Fs)
+%load gong 
+%sound(y,Fs)
         
