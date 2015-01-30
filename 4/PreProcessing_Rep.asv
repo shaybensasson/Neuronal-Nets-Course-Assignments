@@ -7,7 +7,6 @@ end
 
 SAVE_MAT_FILE = 1;
 
-%secs in stimulus rep window
 SECONDS_IN_WINDOW = 200;
 TICKS_IN_SECOND = 10000;
 TICKS_IN_WINDOW = TICKS_IN_SECOND * SECONDS_IN_WINDOW;
@@ -33,12 +32,13 @@ Simulation.TICKS_IN_SECOND = TICKS_IN_SECOND;
 Simulation.STIMULUS_EACH_TICKS = STIMULUS_EACH_TICKS;
 
 for iNeuron = 1:length(TTRep)
-    fprintf('[N:#%i] ...\n', iNeuron);
+    
+
+    %fprintf('[N:#%i] ...\n', iNeuron);
     
     %allocate an array to store prepocessed data for neuron
-    neuronData.all = NaN(STIMULI_PER_WINDOW*ITERATIONS, 3);
+    neuronData.all = NaN((STIMULI_PER_WINDOW+SAFETY_SIZE_SUFFIX)*ITERATIONS, 3); %TODO: can we remove safety?
     lastIterationIndex = 0;
-
     for iIteration = 2:ITERATIONS
         %fprintf('[N:#%i] processing iteration #%i/#%i ...\n', iNeuron, iIteration, ITERATIONS);
 
@@ -65,7 +65,7 @@ for iNeuron = 1:length(TTRep)
         stimTimes = 1:floor(STIMULUS_EACH_TICKS):dataTicks;
         stimTimes = stimTimes(1:STIMULI_PER_WINDOW);
 
-        iteration.stimuli(stimTimes)=stimValues;
+        iteration.stimuli(stimTimes)=stimValues; %todo: do we need the cut of vals
 
         %% get aps of the current rep window        
         timeOfAPs=TTRep(iNeuron).sp; %time of Aps

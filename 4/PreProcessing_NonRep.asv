@@ -19,7 +19,7 @@ ITERATIONS = ITERATIONS-2; %we ignore the last 2 chunks because it has partial s
 
 %will be used if we have more stimuli than expected in a given non-rep
 %window
-SAFETY_SIZE_SUFFIX = 1000; %actually the max is 3725
+SAFETY_SIZE_SUFFIX = 0; %actually the max is 3725
 
 clear Simulation;
 Simulation.Mode = 'NonRep';
@@ -34,15 +34,18 @@ Simulation.STIMULUS_EACH_TICKS = STIMULUS_EACH_TICKS;
         
 for iNeuron = 1:length(TTNonRep)
     
+    fprintf('[N:#%i] ...\n', iNeuron);
+    
     %allocate an array to store prepocessed data for neuron
-    neuronData.all = NaN((STIMULI_PER_WINDOW+SAFETY_SIZE_SUFFIX)*ITERATIONS, 3);
+    neuronData.all = NaN((STIMULI_PER_WINDOW+SAFETY_SIZE_SUFFIX)*ITERATIONS, 3); %TODO: can we remove safety?
     lastIterationIndex = 0;
     lastIterationSimuliIndex = 0;
     
     for iIteration = 2:ITERATIONS
-        fprintf('[N:#%i] processing iteration #%i/#%i ...\n', iNeuron, iIteration, ITERATIONS);
-
         
+        %fprintf('[N:#%i] processing iteration #%i/#%i ...\n', iNeuron, iIteration, ITERATIONS);
+
+        %Normalize stim time to start from 1
         iEnd = iIteration;
         iStart = iEnd-1;
         
@@ -96,6 +99,8 @@ for iNeuron = 1:length(TTNonRep)
         res(:,3) = iteration.APs;
 
         iteration.all = res(res(:,2) > 0 | res(:,3) > 0,:); %keep records with data
+        
+        %store in neuronData output
         nextIterationIndex = lastIterationIndex + length(iteration.all) + 1;
         neuronData.all(lastIterationIndex+1:nextIterationIndex-1,:) = iteration.all;
         lastIterationIndex = nextIterationIndex-1;

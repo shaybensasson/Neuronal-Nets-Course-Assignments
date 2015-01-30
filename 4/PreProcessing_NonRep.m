@@ -17,10 +17,6 @@ NEURONS = length(TTNonRep);
 ITERATIONS = length(StimTimeNonRep); %NOTE: each ITERATION is different bulk (non-repeating window)
 ITERATIONS = ITERATIONS-2; %we ignore the last 2 chunks because it has partial stimuli values
 
-%will be used if we have more stimuli than expected in a given non-rep
-%window
-SAFETY_SIZE_SUFFIX = 1000; %actually the max is 3725
-
 clear Simulation;
 Simulation.Mode = 'NonRep';
 Simulation.Neuron = cell(1,length(TTNonRep));
@@ -37,15 +33,14 @@ for iNeuron = 1:length(TTNonRep)
     fprintf('[N:#%i] ...\n', iNeuron);
     
     %allocate an array to store prepocessed data for neuron
-    neuronData.all = NaN((STIMULI_PER_WINDOW+SAFETY_SIZE_SUFFIX)*ITERATIONS, 3);
+    neuronData.all = NaN(STIMULI_PER_WINDOW*ITERATIONS, 3);
     lastIterationIndex = 0;
     lastIterationSimuliIndex = 0;
     
     for iIteration = 2:ITERATIONS
-        
         %fprintf('[N:#%i] processing iteration #%i/#%i ...\n', iNeuron, iIteration, ITERATIONS);
 
-        
+        %Normalize stim time to start from 1
         iEnd = iIteration;
         iStart = iEnd-1;
         
@@ -114,6 +109,3 @@ if (SAVE_MAT_FILE)
     fprintf('Saving simulation output ...\n');
     save('PreProcessed_NonRep.mat', 'Simulation');
 end
-
-
-
