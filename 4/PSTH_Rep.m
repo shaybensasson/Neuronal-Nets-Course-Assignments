@@ -40,12 +40,12 @@ for iNeuron=1:NEURONS
         iEnd = iIteration;
         iStart = iEnd-1; 
 
-        times = Simulation.Neuron{iNeuron}(:,1);
+        times = Simulation.Neuron{iNeuron}.Data(:,1);
         
         onset = StimTimeRep(iStart);
         next_onset = StimTimeRep(iEnd);
         filter = logical(times(:) >= onset & times(:) < next_onset);
-        windowData = Simulation.Neuron{iNeuron}(filter, :);
+        windowData = Simulation.Neuron{iNeuron}.Data(filter, :);
                 
         delta = zeros(length(windowData), 3);
         delta(:,1) = onset;

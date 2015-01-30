@@ -1,3 +1,4 @@
+clear all;
 if (~exist('TTRep','var'))
     load('FixedData.mat')
     
@@ -103,7 +104,7 @@ for iNeuron = 1:length(TTRep)
     end %iIteration
 
     %remove NaN rows
-    Simulation.Neuron{iNeuron} = neuronData.all(any(~isnan(neuronData.all),2),:);
+    Simulation.Neuron{iNeuron}.Data = neuronData.all(any(~isnan(neuronData.all),2),:);
 end %iNeuron
 
 if (SAVE_MAT_FILE)

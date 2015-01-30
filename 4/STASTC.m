@@ -29,13 +29,10 @@ STA_WINDOW_IN_TICKS = STA_WINDOW_IN_SEC*Simulation.TICKS_IN_SECOND;
 %calculate how many stims in the STA window
 STIMS_IN_STA_WINDOW = floor(STA_WINDOW_IN_TICKS/Simulation.STIMULUS_EACH_TICKS);
 
-figure;
-
 for iNeuron=1:NEURONS
-    subplot(2,2,iNeuron);
     SAFETY_WINDOW_TO_THE_PAST = STIMS_IN_STA_WINDOW*3;
     
-    data = Simulation.Neuron{iNeuron};
+    data = Simulation.Neuron{iNeuron}.Data;
     %get rid of data that has less history than STA safety window
     idxFirstAP = find(data(:,3)==1, 100, 'first');
     idxFirstAP(idxFirstAP<=SAFETY_WINDOW_TO_THE_PAST) = [];
@@ -103,24 +100,67 @@ for iNeuron=1:NEURONS
     accSTAStims(all(isnan(accSTAStims),2),:)=[];
     accAPs(all(isnan(accAPs),2),:)=[];
     
-    %normalize
+    %{
+    normalize: 
+        this way we unify all the filters from different neurons,
+        so we could compare them.
+    %}
     accSTAStims = accSTAStims-mean(mean(accSTAStims,1));
     
     %see http://en.wikipedia.org/wiki/Spike-triggered_average
     STA = 1/totalAPs * accSTAStims'  * accAPs;
 
     % normalize spike-triggered average
-    normSTA=(STA-mean(STA))./mean(STA);
+    STA=(STA-mean(STA))./max(abs(STA));
+    
+    
+    STC = accSTAStims'*(accSTAStims.*repmat(accAPs,1,STIMS_IN_STA_WINDOW)) ...
+        / (totalAPs-1) - STA*STA'*totalAPs/(totalAPs-1);
 
-    %plot STA
-    x = linspace(-STA_WINDOW_IN_MS, 0, length(normSTA));
-    plot(x, normSTA);
+    Simulation.Neuron{iNeuron}.STA = STA;
+    Simulation.Neuron{iNeuron}.STC = STC;
+    
+    [V,D] = eig(STC);
+    %{ 
+    produces matrices of eigenvalues (D, diag(D) are eigenvalues) 
+    and eigenvectors (V, its columns are the eigenvectors of A) of matrix A, 
+    so that A*V = V*D.
+    %}
+    
+    %flip evals, so we'd get positive variance (just as svd)
+    evals = diag(-1.*D); 
+    Simulation.Neuron{iNeuron}.EigenValues = evals;
+    evects = V(:,idx); 
+    Simulation.Neuron{iNeuron}.EigenVectors = evects;
+end %iNeuron
+
+%% plot STA
+figure(1);
+for iNeuron=1:NEURONS
+    subplot(2,2, iNeuron);
+    STA = Simulation.Neuron{iNeuron}.STA;
+    
+    x = linspace(-STA_WINDOW_IN_MS, 0, length(STA));
+    plot(x, STA);
 
     title(sprintf('STA for Neuron #%d', iNeuron));
     xlabel('Time (ms)');
     ylabel('Light levels');
-end
+ end
 
+%% plot eVals
+figure(2);
+for iNeuron=1:NEURONS
+    subplot(2,2, iNeuron);
+    evals = Simulation.Neuron{iNeuron}.EigenValues;
+    
+    plot(evals, 'o'); % examine eigenvalues
+    
+    title(sprintf('Eigenvalues (of STC) for Neuron #%d', iNeuron));
+    xlabel('EigenValue/EigenVector index');
+    ylabel('Variance');
+ end    
+    
 %load gong 
 %sound(y,Fs)
         
