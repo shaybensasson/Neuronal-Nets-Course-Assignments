@@ -1,7 +1,7 @@
 close all;
 
 %choose Rep or NonRep
-MODE = 'Rep';
+MODE = 'NonRep';
 
 if (~exist('Simulation','var') || (~strcmp(Simulation.Mode,MODE)))
     clearvars -except MODE;
@@ -20,6 +20,8 @@ if (~exist('Simulation','var') || (~strcmp(Simulation.Mode,MODE)))
     
 end
 
+SAVE_MAT_FILE = 1;
+
 NEURONS=length(Simulation.Neuron); 
 
 STA_WINDOW_IN_MS = 1000;
@@ -28,6 +30,11 @@ STA_WINDOW_IN_TICKS = STA_WINDOW_IN_SEC*Simulation.TICKS_IN_SECOND;
 
 %calculate how many stims in the STA window
 STIMS_IN_STA_WINDOW = floor(STA_WINDOW_IN_TICKS/Simulation.STIMULUS_EACH_TICKS);
+
+Simulation.STA_WINDOW_IN_MS = STA_WINDOW_IN_MS;
+Simulation.STA_WINDOW_IN_SEC = STA_WINDOW_IN_TICKS;
+Simulation.STA_WINDOW_IN_TICKS = STA_WINDOW_IN_TICKS;
+Simulation.STIMS_IN_STA_WINDOW = STIMS_IN_STA_WINDOW;
 
 for iNeuron=1:NEURONS
     SAFETY_WINDOW_TO_THE_PAST = STIMS_IN_STA_WINDOW*3;
@@ -130,7 +137,7 @@ for iNeuron=1:NEURONS
     %flip evals, so we'd get positive variance (just as svd)
     evals = diag(-1.*D); 
     Simulation.Neuron{iNeuron}.EigenValues = evals;
-    evects = V(:,idx); 
+    evects = V; 
     Simulation.Neuron{iNeuron}.EigenVectors = evects;
 end %iNeuron
 
@@ -161,6 +168,10 @@ for iNeuron=1:NEURONS
     ylabel('Variance');
  end    
     
+if (SAVE_MAT_FILE)
+    fprintf('Saving simulation output ...\n');
+    save(['AfterSTA_' MODE '.mat'], 'Simulation');
+end
+
 %load gong 
 %sound(y,Fs)
-        
