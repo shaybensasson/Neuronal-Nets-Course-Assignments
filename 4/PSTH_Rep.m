@@ -11,6 +11,8 @@ TICKS_IN_WINDOW = Simulation.TICKS_IN_WINDOW;
 TICKS_IN_SECOND = Simulation.TICKS_IN_SECOND;
 
 BIN_SIZE=10/3*TICKS_IN_SECOND; %3.3333*10^4
+%BIN_SIZE=1000; %0.1 sec
+
 NUM_OF_BINS = TICKS_IN_WINDOW/BIN_SIZE; %60 bins
 bins = 0:BIN_SIZE:TICKS_IN_WINDOW;
 indexesOfTime = 1:TICKS_IN_WINDOW; %used for x axis values
@@ -24,7 +26,7 @@ for iNeuron=1:NEURONS
     accAPs = zeros(TICKS_IN_WINDOW, 1);
     
     subplot(NEURONS,1,iNeuron);
-    title(sprintf('Neuron #%d (Bin size/TicksPerSec = %d/%d=%0.2f secs)', ...
+    title(sprintf('Neuron #%d (Bin size/TicksPerSec = %d/%d=%f secs)', ...
         iNeuron, BIN_SIZE,TICKS_IN_SECOND,BIN_SIZE/TICKS_IN_SECOND));
     
     hold on

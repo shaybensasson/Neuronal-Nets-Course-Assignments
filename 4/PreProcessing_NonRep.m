@@ -3,6 +3,8 @@ if (~exist('TTNonRep','var'))
     load('FixedData.mat')
 end
 
+ConstantsHeader();
+
 SAVE_MAT_FILE = 1;
 
 %secs in stimulus non-rep window
@@ -19,7 +21,8 @@ ITERATIONS = length(StimTimeNonRep); %NOTE: each ITERATION is different bulk (no
 ITERATIONS = ITERATIONS-2; %we ignore the last 2 chunks because it has partial stimuli values
 
 clear Simulation;
-Simulation.Mode = 'NonRep';
+Simulation.Mode = CONSTANTS.MODES.NONREP;
+Simulation.Phase = CONSTANTS.PHASES.PREPROCESSING;
 Simulation.Neuron = cell(1,length(TTNonRep));
 Simulation.StimTimeNonRep = StimTimeNonRep;
 Simulation.ITERATIONS = ITERATIONS;

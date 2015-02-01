@@ -6,6 +6,8 @@ if (~exist('TTRep','var'))
     StimTimeRep = StimTimeRep(1:2:end); 
 end
 
+ConstantsHeader();
+
 SAVE_MAT_FILE = 1;
 
 %secs in stimulus rep window
@@ -24,7 +26,8 @@ ITERATIONS = length(StimTimeRep); %NOTE: each ITERATION is a repetition
 globalStimValues = StimulusRep(1:STIMULI_PER_WINDOW);
 
 clear Simulation;
-Simulation.Mode = 'Rep';
+Simulation.Mode = CONSTANTS.MODES.REP;
+Simulation.Phase = CONSTANTS.PHASES.PREPROCESSING;
 Simulation.Neuron = cell(1,length(TTRep));
 Simulation.StimTimeRep = StimTimeRep;
 Simulation.ITERATIONS = ITERATIONS;

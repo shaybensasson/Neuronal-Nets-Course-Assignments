@@ -48,7 +48,7 @@ for iNeuron=1:NEURONS
     %and eigenvectors (V, its columns are the eigenvectors of A) of matrix A, 
     %so that A*V = V*D.
 
-    ev = diag(-1.*D);
+    ev = abs(diag(D)); %just as SVD, these are variances
     
     plot(ev, 'o'); % examine eigenvalues
        
