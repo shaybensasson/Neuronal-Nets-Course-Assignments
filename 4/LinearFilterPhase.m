@@ -78,7 +78,11 @@ for iNeuron=1:NEURONS
         stimsAfterLinearFilter(1:STIMS_TO_THROW_AFTER_CONV,1) = NaN;
         stimsAfterLinearFilter(end-STIMS_TO_THROW_AFTER_CONV:STIMS_TO_THROW_AFTER_CONV,1) = NaN;
         
+        
         curNeuron.Data(filter,4) = stimsAfterLinearFilter;
+        
+        filter = isnan(curNeuron.Data(:,3)) & curNeuron.Data(:,4)==0;
+        curNeuron.Data(filter,4)=NaN; %convert zeros to NaN
         
     end %for ITERATIONS
     
@@ -86,7 +90,7 @@ for iNeuron=1:NEURONS
     
 end %for iNeuron
 
-%% plotting and more data analysis
+%% plotting raw vs after filter stims and more data analysis
 figure;
 for iNeuron=1:NEURONS
     subplot(2,2, iNeuron);
@@ -142,7 +146,7 @@ for iNeuron=1:NEURONS
     
 end
 
-%% plotting v2
+%% plotting stims and after filter stims against time
 figure;
 for iNeuron=1:NEURONS
     subplot(2,2, iNeuron);
