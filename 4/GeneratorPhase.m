@@ -110,15 +110,22 @@ for iNeuron=1:NEURONS
     stimsAfterGenerator = windowData(:,5);
     
     NORMALIZE = 1;
+    NORMALIZE_BY_MAX = 1;
     if (NORMALIZE) 
         m1 = mean(stimValues);
         m2 = mean(stimsAfterLinearFilter);
         m3 = mean(stimsAfterGenerator);
 
+        stimValues = stimValues-m1;
+        stimsAfterLinearFilter = stimsAfterLinearFilter-m2;
+        stimsAfterGenerator = stimsAfterGenerator-m3;
+        
         %normalize
-        stimValues = (stimValues-m1)/max(abs(stimValues));
-        stimsAfterLinearFilter = (stimsAfterLinearFilter-m2)/max(abs(stimsAfterLinearFilter));
-        stimsAfterGenerator = (stimsAfterGenerator-m3)/max(abs(stimsAfterGenerator));
+        if (NORMALIZE_BY_MAX) 
+            stimValues = (stimValues)/max(abs(stimValues));
+            stimsAfterLinearFilter = (stimsAfterLinearFilter)/max(abs(stimsAfterLinearFilter));
+            stimsAfterGenerator = (stimsAfterGenerator)/max(abs(stimsAfterGenerator));
+        end
     end
     
     curNeuron.NormalizedData = NaN(length(stimValues), 4);

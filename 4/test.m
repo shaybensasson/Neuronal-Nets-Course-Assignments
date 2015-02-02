@@ -1,59 +1,92 @@
-%see http://en.wikipedia.org/wiki/Spike-triggered_covariance
-%see Matlab Code in wiki: http://pillowlab.cps.utexas.edu/code_STC.html
-%{
-STC=0;
-for i=1:length(accSTAStims)
-    STC = STC + accAPs(i).*(accSTAStims(i,:)-STA')*(accSTAStims(i,:)-STA')';
-end
-
-STC = 1/(totalAPs-1).*STC
-
-C=0;
-for i=1:length(accSTAStims)
-    C = C + accSTAStims(i,:)*accSTAStims(i,:)';
-end
-
-C=1/(totalStims-1).*C
-%}
+clc;
 close all;
-%{
-STC = accSTAStims'*(accSTAStims.*repmat(accAPs,1,STIMS_IN_STA_WINDOW)) ...
-    / (totalAPs-1) - STA*STA'*totalAPs/(totalAPs-1);
-%}
 
-%% plot eVals
-figure;
+%% create the fit
 for iNeuron=1:NEURONS
-    subplot(2,2, iNeuron);
-    STC = Simulation.Neuron{iNeuron}.STC;
-    
-    [u,s,v] = svd(STC); 
-    %s is a diag matrix with the eigenvalues
-    ev = diag(s);
-    
-    plot(ev, 'o'); % examine eigenvalues
-       
-    title(sprintf('Eigenvalues (using svd) for Neuron #%d', iNeuron));
-    xlabel('EigenValue/EigenVector index');
-    ylabel('Variance');
-end
+    curNeuron = Simulation.Neuron{iNeuron};
+    data = curNeuron.CurveFitData;    
 
-figure;
-for iNeuron=1:NEURONS
-    subplot(2,2, iNeuron);
-    STC = Simulation.Neuron{iNeuron}.STC;
-    
-    [V,D] = eig(STC)
-    %produces matrices of eigenvalues (D, diag(D) are eigenvalues) 
-    %and eigenvectors (V, its columns are the eigenvectors of A) of matrix A, 
-    %so that A*V = V*D.
 
-    ev = diag(-1.*D);
+    % based on http://stackoverflow.com/questions/22792020/matlab-accumarray-weighted-mean
+    %data = [10 1;30 1;20 2;30 1;20 4;20 6]
+    %data = funcXAnyYData;
+    %data = [0.1,10; 0.15 20; -0.5 5;0.77 2; 0.8 2;-0.44 12];
+
+    %{
+
+    data =
+
+        10     1
+        30     1
+        20     2
+        30     1
+        20     4
+        20     6    
+    %}
+
+    data = sortrows(data, 1);
+    XVals = data(:,1); %after linear filter
+    YVals = data(:,2); %raw stims
+    %[funcXData, ~, Groups] = unique(data(:,1),'stable');
+
+    BIN_SIZE=0.1;
+    %BIN_SIZE=0.05; 
+    %BIN_SIZE=0.001; 
+
+    firstBin = floor(min(XVals)*10)/10;
+    lastBin = ceil(max(XVals)*10)/10;
+    %firstBin = min(XVals);
+    %lastBin = max(XVals);
+    bins = firstBin:BIN_SIZE:lastBin;
+    %no zero intesity, somehow it does not equal zero, but a really small number
+    %bins(abs(bins(:)*10)<BIN_SIZE)=[]; 
+    [bincounts,binIndex] = histc(XVals,bins);
+    %bins(bincounts(:)==0)=[]; 
+    %bins = bins(unique(binIndex(:,1),'stable'));
     
-    plot(ev, 'o'); % examine eigenvalues
-       
-    title(sprintf('Eigenvalues (using eig) for Neuron #%d', iNeuron));
-    xlabel('EigenValue/EigenVector index');
-    ylabel('Variance');
+    %sumByBins = accumarray(binIndex,accAPsAtLeastOne, [length(bins) 1]);
+    %{
+    ID =
+
+        10
+        20
+        30
+
+
+    Groups =
+
+         1
+         2
+         2
+         2
+         3
+         3
+    %}
+    %fnMean = @(ii) mean(YVals(ii));
+
+    funcXData = bins';
+    %funcXData(bincounts(:,1)==0)=[];
+    %funcYMeans = accumarray(binIndex, YVals, [], @mean);
+    funcYMeans = accumarray(binIndex, YVals, [length(bins) 1], @mean);
+    
+    %remove empty/'zero' intesity buckets
+    m = [funcXData funcYMeans];
+    m = m(m(:,2)~=0,:);
+    funcXData = m(:,1);
+    funcYMeans = m(:,2);
+
+    %TODO: rename variables
+
+    %figure;
+    %plot(funcXData,funcYMeans,'.');
+
+    [fitresult, gof] = createFit(funcXData,funcYMeans,iNeuron,MODE);
+    curNeuron.Generator = fitresult;
+    
+    
+    %[fitresult2, gof2] = createFitGideon(funcXData,funcYMeans);
+    %[fitresult3, gof3] = createNonLinearFit(funcXData,funcYMeans);
+    
+    Simulation.Neuron{iNeuron} = curNeuron;
 end
 

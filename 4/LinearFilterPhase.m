@@ -72,6 +72,7 @@ for iNeuron=1:NEURONS
         
         see http://en.wikipedia.org/wiki/Cross-correlation
         %}
+        %TODO: should we make it 'valid'?
         stimsAfterLinearFilter = conv(stimValuesOnWindow, flipud(STA'), 'same');
 
         %throw 0-padded convolved values, see conv doc for more info;
