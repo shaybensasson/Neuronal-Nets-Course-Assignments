@@ -36,10 +36,13 @@ STIMS_IN_STA_WINDOW = Simulation.STIMS_IN_STA_WINDOW;
 
 %throw 0-padded convolved values, see conv doc for more info;
 STIMS_TO_THROW_AFTER_CONV = ceil(STIMS_IN_STA_WINDOW/2);
+%duration in seconds to display when ploting multiple rates
+SECONDS_OF_RATE_TO_DISPLAY = 10;
 
 %store for later usage
 Simulation.Phase = CONSTANTS.PHASES.LINEARFILTER;
 Simulation.STIMS_TO_THROW_AFTER_CONV = STIMS_TO_THROW_AFTER_CONV;
+Simulation.SECONDS_OF_RATE_TO_DISPLAY = SECONDS_OF_RATE_TO_DISPLAY;
         
 %% apply a linear filter of STA
 for iNeuron=1:NEURONS
@@ -72,13 +75,14 @@ for iNeuron=1:NEURONS
         
         see http://en.wikipedia.org/wiki/Cross-correlation
         %}
-        %TODO: should we make it 'valid'?
-        stimsAfterLinearFilter = conv(stimValuesOnWindow, flipud(STA'), 'same');
+        stimsAfterLinearFilter = conv(stimValuesOnWindow, flipud(STA'), 'valid');
 
-        %throw 0-padded convolved values, see conv doc for more info;
-        stimsAfterLinearFilter(1:STIMS_TO_THROW_AFTER_CONV,1) = NaN;
-        stimsAfterLinearFilter(end-STIMS_TO_THROW_AFTER_CONV:STIMS_TO_THROW_AFTER_CONV,1) = NaN;
-        
+        %added NaNs to 0-padded convolved values, see conv doc for more info;
+        %FUTURE: we might have problems here with different sizes of STA
+        stimsAfterLinearFilter = padarray(stimsAfterLinearFilter,...
+            [STIMS_TO_THROW_AFTER_CONV-1 0], NaN, 'pre');
+        stimsAfterLinearFilter = padarray(stimsAfterLinearFilter,...
+            [STIMS_TO_THROW_AFTER_CONV 0], NaN, 'post');
         
         curNeuron.Data(filter,4) = stimsAfterLinearFilter;
         
@@ -116,19 +120,19 @@ for iNeuron=1:NEURONS
     hold on;
     
     NORMALIZE = 1;
+    NORMALIZE_BY_MAX = 1;
     if (NORMALIZE) 
         m1 = mean(stimValues);
         m2 = mean(stimsAfterLinearFilter);
 
+        stimValues = stimValues-m1;
+        stimsAfterLinearFilter = stimsAfterLinearFilter-m2;
+        
         %normalize
-        stimValues = (stimValues-m1)/max(abs(stimValues));
-        stimsAfterLinearFilter = (stimsAfterLinearFilter-m2)/max(abs(stimsAfterLinearFilter));
-
-        xlabel('Normalized STA Linear Filtered values');
-        ylabel('Normalized Raw stimuli values');
-    else
-        xlabel('STA Linear Filtered values');
-        ylabel('Raw stimuli values');
+        if (NORMALIZE_BY_MAX) 
+            stimValues = (stimValues)/max(abs(stimValues));
+            stimsAfterLinearFilter = (stimsAfterLinearFilter)/max(abs(stimsAfterLinearFilter));
+        end
     end
     
     curNeuron.NormalizedData = NaN(length(stimValues), 3);
@@ -151,24 +155,38 @@ end
 figure;
 for iNeuron=1:NEURONS
     subplot(2,2, iNeuron);
+    %figure;
+    
     curNeuron = Simulation.Neuron{iNeuron};
     times = curNeuron.NormalizedData(:,1);
     stimValues = curNeuron.NormalizedData(:,2);
     stimsAfterLinearFilter = curNeuron.NormalizedData(:,3);
+    
+    %we display only partial data
+    dataPoints = 1:(ceil(Simulation.TICKS_IN_SECOND/Simulation.STIMULUS_EACH_TICKS))*SECONDS_OF_RATE_TO_DISPLAY;
+    times = times(dataPoints);
+    stimValues = stimValues(dataPoints);
+    stimsAfterLinearFilter = stimsAfterLinearFilter(dataPoints);
+    
+    %normalize time so we'd start for 0
+    times = times-times(1);
          
     hold on;
-       
+           
     plot(times,stimsAfterLinearFilter,'k');
-    
-    plot(times,stimValues,'b');
-    
+    h = plot(times,stimValues, 'b');
+    h.Color(4) = 0.3;  % 50% transparent
+        
     title(sprintf('Neuron #%d', iNeuron));
     legend('After STA Linear Filter', 'Raw');
+    
     xlim([0,times(end)]);
     
+    %{
     set(gca,'XTickLabel',sprintf('%1.0f|',...
         0:SECONDS_IN_WINDOW:times(end)/TICKS_IN_SECOND));
-
+    %}
+    
     
     xlabel('Time (s)');
     ylabel('Normalized Stimuli Values');

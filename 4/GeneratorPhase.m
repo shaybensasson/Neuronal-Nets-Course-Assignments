@@ -29,6 +29,7 @@ NEURONS = length(Simulation.Neuron);
 SECONDS_IN_WINDOW = Simulation.SECONDS_IN_WINDOW;
 TICKS_IN_WINDOW = Simulation.TICKS_IN_WINDOW;
 TICKS_IN_SECOND = Simulation.TICKS_IN_SECOND;
+SECONDS_OF_RATE_TO_DISPLAY = Simulation.SECONDS_OF_RATE_TO_DISPLAY;
 
 %store for later usage
 Simulation.Phase = CONSTANTS.PHASES.LINEARFILTER;
@@ -147,20 +148,33 @@ for iNeuron=1:NEURONS
     stimsAfterLinearFilter = curNeuron.NormalizedData(:,3);
     stimsAfterGenerator = curNeuron.NormalizedData(:,4);
          
-    hold on;
-       
-    plot(times,stimsAfterLinearFilter,'k');
-    plot(times,stimsAfterGenerator,'g');
-    plot(times,stimValues,'b');
+    %we display only partial data
+    dataPoints = 1:(ceil(Simulation.TICKS_IN_SECOND/Simulation.STIMULUS_EACH_TICKS))*SECONDS_OF_RATE_TO_DISPLAY;
+    times = times(dataPoints);
+    stimValues = stimValues(dataPoints);
+    stimsAfterLinearFilter = stimsAfterLinearFilter(dataPoints);
+    stimsAfterGenerator = stimsAfterGenerator(dataPoints);
     
+    %normalize time so we'd start for 0
+    times = times-times(1);
+         
+    hold on;
+           
+    plot(times,stimsAfterLinearFilter,'k');
+    h = plot(times,stimValues, 'b');
+    h.Color(4) = 0.3;  % 70% transparent
+    h = plot(times,stimsAfterGenerator,'g');
+    h.Color(4) = 0.5;  % 50% transparent
+        
     title(sprintf('Neuron #%d', iNeuron));
-    legend('After STA Linear Filter', 'After Generator', 'Raw');
+    legend('After STA Linear Filter', 'Raw', 'After Generator');
     xlim([0,times(end)]);
     
+    %{
     set(gca,'XTickLabel',sprintf('%1.0f|',...
         0:SECONDS_IN_WINDOW:times(end)/TICKS_IN_SECOND));
+    %}
 
-    
     xlabel('Time (s)');
     ylabel('Normalized Stimuli Values');
     
