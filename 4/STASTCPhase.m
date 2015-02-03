@@ -4,9 +4,10 @@ ConstantsHeader();
 %choose Rep or NonRep
 MODE = 'NonRep';
 
-if (~exist('Simulation','var') || (~strcmp(Simulation.Mode,MODE)))
+if (~exist('Simulation','var') || (~strcmp(Simulation.Mode,MODE)) || ...
+        Simulation.Phase < CONSTANTS.PHASES.PSTH)
     clearvars -except MODE;
-    load(['PreProcessed_' MODE '.mat'])
+    load(['AfterPSTH_' MODE '.mat'])
     ConstantsHeader(); 
 end
 

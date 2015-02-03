@@ -3,6 +3,9 @@ if (~exist('Simulation','var') || (~strcmp(Simulation.Mode,'NonRep')))
     load('PreProcessed_NonRep.mat')
 end
 
+ConstantsHeader();
+SAVE_MAT_FILE = 1;
+
 NEURONS = length(Simulation.Neuron);
 ITERATIONS = Simulation.ITERATIONS;
 StimTimeNonRep = Simulation.StimTimeNonRep;
@@ -11,7 +14,8 @@ TICKS_IN_WINDOW = Simulation.TICKS_IN_WINDOW;
 TICKS_IN_SECOND = Simulation.TICKS_IN_SECOND;
 
 %BIN_SIZE=10/3*TICKS_IN_SECOND; %3.3333*10^4
-BIN_SIZE=1000; %0.1 sec
+%BIN_SIZE=1000; %0.1 sec
+BIN_SIZE = Simulation.STIMULUS_EACH_TICKS; %Minimal BinSize = sampling freq
 
 NUM_OF_BINS = TICKS_IN_WINDOW/BIN_SIZE; %60 bins
 bins = 0:BIN_SIZE:TICKS_IN_WINDOW;
@@ -20,13 +24,17 @@ indexesOfTime = 1:TICKS_IN_WINDOW; %used for x axis values
 maxHz = 0; %Max Hz for graphs
 maxBinCount = 0; %Max bin count for graphs
 handles = zeros(NEURONS, 1); %used later to update graphs
+
+Simulation.Phase = CONSTANTS.PHASES.PSTH;
+Simulation.PSTH_BIN_SIZE = BIN_SIZE;
+
 %% plot neurons data
 for iNeuron=1:NEURONS
-    
+    fprintf('[N:#%i] ...\n', iNeuron);
     accAPs = zeros(TICKS_IN_WINDOW, 1);
     
     subplot(NEURONS,1,iNeuron);
-    title(sprintf('Neuron #%d (Bin size/TicksPerSec = %d/%d=%0.2f secs)', ...
+    title(sprintf('Neuron #%d (Bin size/TicksPerSec = %.2f/%d=%f secs)', ...
         iNeuron, BIN_SIZE,TICKS_IN_SECOND,BIN_SIZE/TICKS_IN_SECOND));
     
     hold on
@@ -65,7 +73,6 @@ for iNeuron=1:NEURONS
         if(~isempty(windowData))
             curAPs = zeros(TICKS_IN_WINDOW, 1);
             curAPs(windowData(:,1)) = 1;
-            %TODO: fprintf('I:%d\n', iIteration);
             accAPs = accAPs + curAPs;
         end
         
@@ -77,9 +84,7 @@ for iNeuron=1:NEURONS
     set(gca,'YTick',[0 med maxy]);
     
     %plot histogram for neuron
-    filter = accAPs(:,1) > 0;
-    spikeTimes = indexesOfTime(filter)';
-    accAPsAtLeastOne = accAPs(filter);
+    spikeTimes = indexesOfTime';
     
     %{
     fprintf('[n=%d] sum accAPs=%d ...\n', ...
@@ -87,7 +92,7 @@ for iNeuron=1:NEURONS
     %}
     
     [bincounts,binIndex] = histc(spikeTimes,bins);
-    sumByBins = accumarray(binIndex,accAPsAtLeastOne, [length(bins) 1]);
+    sumByBins = accumarray(binIndex,accAPs, [length(bins) 1]);
     bar(bins,sumByBins,'histc');
     curMaxBinCount = max(sumByBins);
     maxBinCount = max(curMaxBinCount, maxBinCount);
@@ -96,6 +101,8 @@ for iNeuron=1:NEURONS
     
     maxHz = max(curHz, maxHz);
     handles(iNeuron)=gca;
+    
+    Simulation.Neuron{iNeuron}.PSTH = [bins' sumByBins];
     
 end %for iNeuron
 
@@ -110,6 +117,11 @@ for iNeuron=1:NEURONS
     set(h,'YTickLabel',{' ';num2str(med);num2str(floor(maxHz))});
 end
 
+        
+if (SAVE_MAT_FILE)
+    fprintf('Saving simulation output ...\n');
+    save('AfterPSTH_NonRep.mat', 'Simulation');
+end
         
 beep('on');
 
