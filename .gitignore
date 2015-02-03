@@ -1,3 +1,12 @@
+# Matlab mat data files
+*.mat
+# Matlab temp files
+*.asv
+
+# Should Be Ignore
+*.pdf
+
+
 # Windows image file caches
 Thumbs.db
 ehthumbs.db
