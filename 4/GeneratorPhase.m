@@ -3,7 +3,7 @@ close all;
 ConstantsHeader();
 
 %choose Rep or NonRep
-MODE = 'NonRep';
+MODE = 'Rep';
 
 if (~exist('Simulation','var') || (~strcmp(Simulation.Mode,MODE)) || ...
         Simulation.Phase < CONSTANTS.PHASES.LINEARFILTER)

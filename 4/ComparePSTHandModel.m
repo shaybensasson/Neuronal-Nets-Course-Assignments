@@ -3,7 +3,7 @@ close all;
 ConstantsHeader();
 
 %on question 3, we where asked to compare PSTH to model in Rep only
-MODE = 'NonRep';
+MODE = 'Rep';
 if (~exist('Simulation','var') || (~strcmp(Simulation.Mode,MODE)) || ...
         Simulation.Phase < CONSTANTS.PHASES.GENERATOR)
     clearvars -except MODE;
@@ -16,6 +16,8 @@ SECONDS_IN_WINDOW = Simulation.SECONDS_IN_WINDOW;
 TICKS_IN_WINDOW = Simulation.TICKS_IN_WINDOW;
 TICKS_IN_SECOND = Simulation.TICKS_IN_SECOND;
 SECONDS_OF_RATE_TO_DISPLAY = Simulation.SECONDS_OF_RATE_TO_DISPLAY;
+BIN_SIZES = Simulation.PSTH_BIN_SIZES;
+BIN_SIZE_TO_PLOT = BIN_SIZES(4);
 
 %% plotting stims and after filters stims against time
 figure;
@@ -26,7 +28,22 @@ for iNeuron=1:NEURONS
     stimValues = curNeuron.NormalizedData(:,2);
     stimsAfterLinearFilter = curNeuron.NormalizedData(:,3);
     stimsAfterGenerator = curNeuron.NormalizedData(:,4);
-    PSTH = curNeuron.PSTH;
+    
+    %TODO: plot only the binsize to display and for other only store data
+    PSTH = curNeuron.PSTH{4};
+    
+    NORMALIZE = 1;
+    NORMALIZE_BY_MAX = 1;
+    if (NORMALIZE) 
+        m1 = mean(PSTH(:,2));
+        
+        PSTH(:,2) = PSTH(:,2)-m1;
+        
+        %normalize
+        if (NORMALIZE_BY_MAX) 
+            PSTH(:,2) = (PSTH(:,2))/max(abs(PSTH(:,2)));
+        end
+    end
     
     %we display only partial data
     dataPoints = 1:(ceil(Simulation.TICKS_IN_SECOND/Simulation.STIMULUS_EACH_TICKS))*SECONDS_OF_RATE_TO_DISPLAY;
@@ -51,20 +68,8 @@ for iNeuron=1:NEURONS
     comp = [times PSTH]; %TODO: remove when stable
     
     timesOfPSTH = PSTH(:,1);
-    PSTH = PSTH(:,2); %get values
-    NORMALIZE = 1;
-    NORMALIZE_BY_MAX = 1;
-    if (NORMALIZE) 
-        m1 = mean(PSTH);
+    PSTH = PSTH(:,2);
         
-        PSTH = PSTH-m1;
-        
-        %normalize
-        if (NORMALIZE_BY_MAX) 
-            PSTH = (PSTH)/max(abs(PSTH));
-        end
-    end
-    
          
     hold on;
            
@@ -78,7 +83,7 @@ for iNeuron=1:NEURONS
     title(sprintf('Neuron #%d', iNeuron));
     legend('After STA Linear Filter', ...
     sprintf('PSTH (Bin Size = %.2f ms)', ...
-        Simulation.PSTH_BIN_SIZE/Simulation.TICKS_IN_SECOND*1000), ...
+        BIN_SIZE_TO_PLOT/Simulation.TICKS_IN_SECOND*1000), ...
     'After Generator (Rest)');
     xlim([0,times(end)]);
     
@@ -91,5 +96,16 @@ for iNeuron=1:NEURONS
     ylabel('Normalized Values');
     
     hold off;
+    
+    %see http://www.mathworks.com/matlabcentral/answers/104189-calculate-sum-of-square-error
+    SSEk = norm(PSTH-stimsAfterLinearFilter,2)^2; %lower is less err
+    SSEg = norm(PSTH-stimsAfterGenerator,2)^2; %lower is less err
+
+    %the similarity between two signals, we only need zero lag
+    %CC = xcorr(PSTH,stimsAfterGenerator,0,'coeff'); % 1 if are equal
+    
+    text(0, 0.9, ...
+        sprintf('\bSSE after STA kernel: %.2f;\nSSE after Generator: %.2f;', ...
+            SSEk, SSEg));
    
 end
