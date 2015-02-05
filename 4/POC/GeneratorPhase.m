@@ -47,7 +47,7 @@ for iBinSize=1:numel(PSTH_BIN_SIZES)
     
     figure( 'Name', sprintf('Generator (%s), Bin size: %.2f', ...
         MODE, curBinSize));
-
+    
     for iNeuron=1:NEURONS
         subplot(2,2,iNeuron);
         curNeuron = Simulation.Neuron{iNeuron};
@@ -70,13 +70,14 @@ for iBinSize=1:numel(PSTH_BIN_SIZES)
             windowData = curNeuron.Data(filter, :);
 
             times = windowData(:, 1);
-            times = times - onset+1;
+            %times = times - onset+1;
             stimValues = windowData(:,2);
             aps = windowData(:,3);
             stimsAfterLinearFilter = windowData(:,4);
 
             %bins = times(start):BIN_SIZE:times(end);
-            bins = 0:curBinSize:TICKS_IN_WINDOW;
+            %bins = 0:curBinSize:TICKS_IN_WINDOW;
+            bins = onset:curBinSize:next_onset-1;
             [~,binIndex] = histc(times(:,1),bins);
             %insert any unbinned data to last bin
             binIndex(binIndex==0)=max(binIndex);
@@ -89,25 +90,27 @@ for iBinSize=1:numel(PSTH_BIN_SIZES)
             grp_psth = accumarray(binIndex, aps, [length(bins) 1], sumIgnoreNaNs, NaN);
             grp_stimsAfterLinearFilter = accumarray(binIndex, stimsAfterLinearFilter, [length(bins) 1], meanIgnoreNaNs, NaN);
 
-            %binned = [ceil(bins') grp_stimValues grp_aps grp_stimsAfterLinearFilter];
-            binned = [ceil(bins') grp_stimsAfterLinearFilter grp_psth];
-            binned(binned(:,2) == 0,:) = [];
+            binned = [ceil(bins') grp_psth grp_stimsAfterLinearFilter];
+            
+            %removed pre allocated unused or conv padded rows
+            binned(isnan(binned(:,2)) | isnan(binned(:,3)), :) = [];
+            
+            %accumulate binned rows of all iterations
             accBinned(idxAcc+1:idxAcc+length(binned),:) = binned;
             idxAcc = idxAcc+length(binned);
         end
-
-        %remove unused preallocated rows or conv padded rows
-        accBinned(isnan(accBinned(:,2)) | isnan(accBinned(:,3)), :) = [];
+       
 
         %% normalize
         times = accBinned(:,1);
-        stimsAfterLinearFilter = accBinned(:,2);
-        psth = accBinned(:,3);
-
+        
         NORMALIZE = 1;
         NORMALIZE_BY_MAX = 1;
-        stimsAfterLinearFilter = normalize(stimsAfterLinearFilter, NORMALIZE, NORMALIZE_BY_MAX);
-        psth = normalize(psth, NORMALIZE, NORMALIZE_BY_MAX);
+        accBinned(:,2) = normalize(accBinned(:,2), NORMALIZE, NORMALIZE_BY_MAX);
+        accBinned(:,3) = normalize(accBinned(:,3), NORMALIZE, NORMALIZE_BY_MAX);
+        
+        psth = accBinned(:,2);
+        stimsAfterLinearFilter = accBinned(:,3);
 
         %% create the fit
         curveFitData = [stimsAfterLinearFilter psth];
@@ -143,22 +146,12 @@ for iBinSize=1:numel(PSTH_BIN_SIZES)
         curNeuron.PSTH{iBinSize}.Generator = fitresult;
                 
         %% apply the generator
-        bins = 0:curBinSize:TICKS_IN_WINDOW;
-        [~,binIndex] = histc(times(:,1),bins);
-        %insert any unbinned data to last bin - WE SHALL HAVE NO UNBINNED
-        %binIndex(binIndex==0)=max(binIndex);
-
-        %group by mean across iterations
-        grp_psth = accumarray(binIndex, psth, [length(bins) 1], @mean, NaN);
-        grp_stimsAfterLinearFilter = accumarray(binIndex, stimsAfterLinearFilter, [length(bins) 1], @mean, NaN);
-
-        rvsrest = [ceil(bins') grp_psth grp_stimsAfterLinearFilter NaN(length(bins), 1)];
-
-        rvsrest(isnan(rvsrest(:,2)) | isnan(rvsrest(:,3)), :) = [];
-        grp_stimsAfterGenerator = curNeuron.PSTH{iBinSize}.Generator(rvsrest(:,3));
-        rvsrest(:,4) = normalize(grp_stimsAfterGenerator, NORMALIZE, NORMALIZE_BY_MAX);
+        grp_stimsAfterGenerator = accBinned(:,3);
+        accBinned(:,4) = normalize( ...
+            fitresult(grp_stimsAfterGenerator), ...
+            NORMALIZE, NORMALIZE_BY_MAX);
         
-        curNeuron.PSTH{iBinSize}.RVsRest = rvsrest;
+        curNeuron.PSTH{iBinSize}.RVsRest = accBinned;
         
         Simulation.Neuron{iNeuron} = curNeuron;    
     end %for iNeuron
