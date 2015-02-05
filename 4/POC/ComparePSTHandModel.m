@@ -3,7 +3,7 @@ close all;
 ConstantsHeader();
 
 %choose Rep or NonRep
-MODE = 'Rep';
+MODE = 'NonRep';
 
 if (~exist('Simulation','var') || (~strcmp(Simulation.Mode,MODE)) || ...
         Simulation.Phase < CONSTANTS.PHASES.GENERATOR)
@@ -29,133 +29,75 @@ TICKS_IN_WINDOW = Simulation.TICKS_IN_WINDOW;
 TICKS_IN_SECOND = Simulation.TICKS_IN_SECOND;
 SECONDS_OF_RATE_TO_DISPLAY = Simulation.SECONDS_OF_RATE_TO_DISPLAY;
 ITERATIONS = Simulation.ITERATIONS;
-PSTH_BIN_SIZES = [Simulation.STIMULUS_EACH_TICKS; ... %sampling freq
-             Simulation.STIMULUS_EACH_TICKS*2; ... ~66 msec          
-             Simulation.STIMULUS_EACH_TICKS*3; ... 100 msec          
-             Simulation.STIMULUS_EACH_TICKS*4; ... ~120 msec
-             Simulation.STIMULUS_EACH_TICKS*5]; ... ~150 sec
+PSTH_BIN_SIZES = Simulation.PSTH_BIN_SIZES;
              
 STIMULI_PER_WINDOW = Simulation.STIMULI_PER_WINDOW;
 %store for later usage
-Simulation.Phase = CONSTANTS.PHASES.LINEARFILTER;
-Simulation.PSTH_BIN_SIZES = PSTH_BIN_SIZES;
 
+
+%for iBinSize=4:6
 for iBinSize=1:numel(PSTH_BIN_SIZES)
     curBinSize = PSTH_BIN_SIZES(iBinSize);
     
-    figure( 'Name', sprintf('Generator (%s), Bin size: %.2f', ...
+    
+    figure( 'Name', sprintf('RvsRest (%s), Bin size: %.2f', ...
         MODE, curBinSize));
 
+    %for iNeuron=3:3
     for iNeuron=1:NEURONS
+        %figure( 'Name', sprintf('RvsRest (%s) of N#%d, Bin size: %.2f', ...
+         %   MODE, iNeuron, curBinSize));
+    
         subplot(2,2,iNeuron);
         curNeuron = Simulation.Neuron{iNeuron};
-        fprintf('[N:#%i] ...\n', iNeuron);
+        fprintf('[Bsz,N:#%d,#%d] ...\n', iBinSize, iNeuron);
+        
+        data = curNeuron.PSTH{iBinSize}.RVsRest;
+        times = data(:,1);
+        PSTH = data(:,2);
+        stimsAfterLinearFilter = data(:,3);
+        stimsAfterGenerator = data(:,4);
+        
+        hold on;
+           
+        h=plot(times,stimsAfterLinearFilter,'k');
+        h.Color(4) = 0.3;  % 70% transparent
+        %h = plot(times,stimValues, 'b');
+        h = plot(times,PSTH, 'b');
+        h.Color(4) = 0.5;  % 50% transparent
+        h = plot(times,stimsAfterGenerator,'g');
+        h.Color(4) = 0.8;  % 20% transparent
 
-        idxAcc = 0;
-        accBinned = NaN(STIMULI_PER_WINDOW*ITERATIONS,2);
-        for iIteration=2:ITERATIONS
-            fprintf('[N:#%i] processing iteration #%i/#%i ...\n', iNeuron, iIteration, ITERATIONS);
+        title(sprintf('Neuron #%d', iNeuron));
+        legend( ...
+            'After STA Linear Filter', ...
+            sprintf('PSTH (Bin Size = %.2f ms)', ...
+                curBinSize/Simulation.TICKS_IN_SECOND*1000), ...
+            'After Generator (Rest)');
+        xlim([0 times(end)]);
 
-            %Normalize stim time to start from 1
-            iEnd = iIteration;
-            iStart = iEnd-1; 
+        %{
+        set(gca,'XTickLabel',sprintf('%1.0f|',...
+            0:SECONDS_IN_WINDOW:times(end)/TICKS_IN_SECOND));
+        %}
 
-            times = Simulation.Neuron{iNeuron}.Data(:,1);
+        xlabel('Time (s)');
+        ylabel('Normalized Values');
 
-            onset = StimTime(iStart);
-            next_onset = StimTime(iEnd);
-            filter = logical(times(:) >= onset & times(:) < next_onset);
-            windowData = curNeuron.Data(filter, :);
+        hold off;
 
-            times = windowData(:, 1);
-            times = times - onset+1;
-            stimValues = windowData(:,2);
-            aps = windowData(:,3);
-            stimsAfterLinearFilter = windowData(:,4);
-
-            %bins = times(start):BIN_SIZE:times(end);
-            bins = 0:curBinSize:TICKS_IN_WINDOW;
-            [~,binIndex] = histc(times(:,1),bins);
-            %insert any unbinned data to last bin
-            binIndex(binIndex==0)=max(binIndex);
-
-            %group by mean and sum
-            sumIgnoreNaNs = @(vector) sum(vector(~isnan(vector(:))));
-            meanIgnoreNaNs = @(vector) mean(vector(~isnan(vector(:))));
-
-            %grp_stimValues = accumarray(binIndex, stimValues, [length(bins) 1], meanIgnoreNaNs);
-            grp_aps = accumarray(binIndex, aps, [length(bins) 1], sumIgnoreNaNs);
-            grp_stimsAfterLinearFilter = accumarray(binIndex, stimsAfterLinearFilter, [length(bins) 1], meanIgnoreNaNs);
-
-            %binned = [ceil(bins') grp_stimValues grp_aps grp_stimsAfterLinearFilter];
-            binned = [grp_stimsAfterLinearFilter grp_aps];
-            binned(binned(:,1) == 0,:) = [];
-            accBinned(idxAcc+1:idxAcc+length(binned),:) = binned;
-            idxAcc = idxAcc+length(binned);
-        end
-
-        %remove unused preallocated rows
-        accBinned(accBinned(:,1) == 0 & accBinned(:,2) == 0, :) = [];
-
-        %% normalize
-        stimsAfterLinearFilter = accBinned(:,1);
-        psth = accBinned(:,2);
-
-        NORMALIZE = 1;
-        NORMALIZE_BY_MAX = 1;
-        stimsAfterLinearFilter = normalize(stimsAfterLinearFilter, NORMALIZE, NORMALIZE_BY_MAX);
-        psth = normalize(psth, NORMALIZE, NORMALIZE_BY_MAX);
-
-        %% create the fit
-        data = [stimsAfterLinearFilter psth];
-        data(isnan(data(:,1)) | isnan(data(:,2)), :) = [];
-
-        data = sortrows(data, 1);
-        XVals = data(:,1); %after linear filter
-        YVals = data(:,2); %psth
-
-        FIT_BIN_SIZE=0.1;
-
-        %create nice looking numbers
-        firstBin = floor(min(XVals)*10)/10;
-        lastBin = ceil(max(XVals)*10)/10;
-
-        %put into bins
-        bins = firstBin:FIT_BIN_SIZE:lastBin;
-        [bincounts,binIndex] = histc(XVals,bins);
-
-        %group by mean
-        funcXData = bins';
-        funcYMeans = accumarray(binIndex, YVals, [length(bins) 1], @mean);
-
-        %remove empty/'zero' intesity buckets
-        m = [funcXData funcYMeans];
-        %m = m(m(:,2)~=0,:);
-        funcXData = m(:,1);
-        funcYMeans = m(:,2);
-
-        %create the 'function' using Interpolant Linear Fit
-        [fitresult, gof] = createFit(funcXData,funcYMeans,iNeuron,MODE);
-        curNeuron.PSTH{iBinSize}.BIN_SIZE = curBinSize;
-        curNeuron.PSTH{iBinSize}.Generator = fitresult;
+        SSEk = curNeuron.PSTH{iBinSize}.SSEk; %lower is less err
+        SSEg = curNeuron.PSTH{iBinSize}.SSEg; %lower is less err
                 
-        Simulation.Neuron{iNeuron} = curNeuron;    
-    end %for iNeuron
-    
-    %% apply the generator
-    for iNeuron=1:NEURONS
-        curNeuron = Simulation.Neuron{iNeuron};
-        fprintf('[N:#%i] ...\n', iNeuron);
-        
-        stimsAfterNonLinearFilter = curNeuron.Data(:,4);
-        NORMALIZE = 1; NORMALIZE_BY_MAX = 1;
-        stimsAfterNonLinearFilter = normalize(stimsAfterNonLinearFilter, NORMALIZE, NORMALIZE_BY_MAX);
-        res = curNeuron.PSTH{iBinSize}.Generator(stimsAfterNonLinearFilter);
+        %the similarity between two signals, we only need zero lag
+        %CC = xcorr(PSTH,stimsAfterGenerator,0,'coeff'); % 1 if are equal
 
-        curNeuron.PSTH{iBinSize}.Result = res; 
-        
-        Simulation.Neuron{iNeuron} = curNeuron;
-    end
+        text(0, 0.9, ...
+            sprintf('SSE after STA kernel: %.2f;\nSSE after Generator: %.2f;', ...
+                SSEk, SSEg));
+
+    end %for iNeuron
 end %for iBinSize
         
 beep('on');
+

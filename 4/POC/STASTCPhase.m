@@ -2,7 +2,7 @@ close all;
 ConstantsHeader();
 
 %choose Rep or NonRep
-MODE = 'Rep';
+MODE = 'NonRep';
 
 if (~exist('Simulation','var') || (~strcmp(Simulation.Mode,MODE)))
     clearvars -except MODE;

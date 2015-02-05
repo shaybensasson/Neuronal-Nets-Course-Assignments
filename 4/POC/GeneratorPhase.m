@@ -3,7 +3,7 @@ close all;
 ConstantsHeader();
 
 %choose Rep or NonRep
-MODE = 'Rep';
+MODE = 'NonRep';
 
 if (~exist('Simulation','var') || (~strcmp(Simulation.Mode,MODE)) || ...
         Simulation.Phase < CONSTANTS.PHASES.LINEARFILTER)
@@ -32,10 +32,11 @@ TICKS_IN_SECOND = Simulation.TICKS_IN_SECOND;
 SECONDS_OF_RATE_TO_DISPLAY = Simulation.SECONDS_OF_RATE_TO_DISPLAY;
 ITERATIONS = Simulation.ITERATIONS;
 PSTH_BIN_SIZES = [Simulation.STIMULUS_EACH_TICKS; ... %sampling freq
-             Simulation.STIMULUS_EACH_TICKS*2; ... ~66 msec          
              Simulation.STIMULUS_EACH_TICKS*3; ... 100 msec          
-             Simulation.STIMULUS_EACH_TICKS*4; ... ~120 msec
-             Simulation.STIMULUS_EACH_TICKS*5]; ... ~150 sec
+             Simulation.STIMULUS_EACH_TICKS*5; ... ~150 msec
+             Simulation.STIMULUS_EACH_TICKS*10; ... ~330 msec
+             Simulation.STIMULUS_EACH_TICKS*15; ... ~500 msec
+             Simulation.STIMULUS_EACH_TICKS*30]; %1000 msec = 1 sec  
              
 STIMULI_PER_WINDOW = Simulation.STIMULI_PER_WINDOW;
 %store for later usage
@@ -51,12 +52,12 @@ for iBinSize=1:numel(PSTH_BIN_SIZES)
     for iNeuron=1:NEURONS
         subplot(2,2,iNeuron);
         curNeuron = Simulation.Neuron{iNeuron};
-        fprintf('[N:#%i] ...\n', iNeuron);
+        fprintf('[Bsz,N:#%d,#%d] ...\n', iBinSize, iNeuron);
 
         idxAcc = 0;
         accBinned = NaN(STIMULI_PER_WINDOW*ITERATIONS,3);
         for iIteration=2:ITERATIONS
-            fprintf('[N:#%i] processing iteration #%i/#%i ...\n', iNeuron, iIteration, ITERATIONS);
+            % fprintf('[N:#%i] processing iteration #%i/#%i ...\n', iNeuron, iIteration, ITERATIONS);
 
             %Normalize stim time to start from 1
             iEnd = iIteration;
@@ -92,14 +93,16 @@ for iBinSize=1:numel(PSTH_BIN_SIZES)
 
             binned = [ceil(bins') grp_psth grp_stimsAfterLinearFilter];
             
-            %removed pre allocated unused or conv padded rows
-            binned(isnan(binned(:,2)) | isnan(binned(:,3)), :) = [];
+            %remove pre conv padded rows
+            binned(isnan(binned(:,3)), :) = [];
             
             %accumulate binned rows of all iterations
             accBinned(idxAcc+1:idxAcc+length(binned),:) = binned;
             idxAcc = idxAcc+length(binned);
         end
-       
+        
+        %remove pre allocated unused or conv padded rows
+        accBinned(isnan(accBinned(:,2)) & isnan(accBinned(:,3)), :) = [];
 
         %% normalize
         times = accBinned(:,1);
@@ -146,12 +149,23 @@ for iBinSize=1:numel(PSTH_BIN_SIZES)
         curNeuron.PSTH{iBinSize}.Generator = fitresult;
                 
         %% apply the generator
-        grp_stimsAfterGenerator = accBinned(:,3);
-        accBinned(:,4) = normalize( ...
-            fitresult(grp_stimsAfterGenerator), ...
+        stimsAfterGenerator = normalize( ...
+            fitresult(stimsAfterLinearFilter), ...
             NORMALIZE, NORMALIZE_BY_MAX);
         
+        accBinned(:,4) = stimsAfterGenerator;
+        
         curNeuron.PSTH{iBinSize}.RVsRest = accBinned;
+        
+        %% create statistics
+        stimsAfterGenerator = accBinned(:,4);
+        
+        %see http://www.mathworks.com/matlabcentral/answers/104189-calculate-sum-of-square-error
+        SSEk = norm(psth-stimsAfterLinearFilter,2)^2; %lower is less err
+        SSEg = norm(psth-stimsAfterGenerator,2)^2; %lower is less err
+                
+        curNeuron.PSTH{iBinSize}.SSEk = SSEk;
+        curNeuron.PSTH{iBinSize}.SSEg = SSEg;
         
         Simulation.Neuron{iNeuron} = curNeuron;    
     end %for iNeuron
