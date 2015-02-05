@@ -69,6 +69,8 @@ for iNeuron=1:NEURONS
             & ~isnan(stimValues(:)));
         stimValuesOnWindow = curNeuron.Data(filter, 2);
                 
+        %TODO: we might normalize stims before conv
+        
         %{ 
         linear filter the stimVals by the STA filter
         we flip the STA so the convolution will be correct
