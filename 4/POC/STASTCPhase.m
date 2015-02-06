@@ -51,6 +51,9 @@ for iNeuron=1:NEURONS
     to = idxLastAP(end)-SAFETY_WINDOW_TO_THE_PAST;
     idxLastAP(idxLastAP>to) = [];
     idxLastAP = idxLastAP(end);
+    
+    %mean over NaNs
+    rawStimuliMean = mean(data(~isnan(data(:,2)),2));
         
     %adding index column
     data = [data (1:length(data))'];
@@ -114,7 +117,7 @@ for iNeuron=1:NEURONS
         this way we unify all the filters from different neurons,
         so we could compare them.
     %}
-    accSTAStims = accSTAStims-mean(mean(accSTAStims,1));
+    accSTAStims = accSTAStims-rawStimuliMean;
     
     %see http://en.wikipedia.org/wiki/Spike-triggered_average
     STA = 1/totalAPs * accSTAStims'  * accAPs;
