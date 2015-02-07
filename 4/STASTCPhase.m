@@ -2,12 +2,11 @@ close all;
 ConstantsHeader();
 
 %choose Rep or NonRep
-MODE = 'Rep';
+MODE = 'NonRep';
 
-if (~exist('Simulation','var') || (~strcmp(Simulation.Mode,MODE)) || ...
-        Simulation.Phase < CONSTANTS.PHASES.PSTH)
+if (~exist('Simulation','var') || (~strcmp(Simulation.Mode,MODE)))
     clearvars -except MODE;
-    load(['AfterPSTH_' MODE '.mat'])
+    load(['PreProcessed_' MODE '.mat'])
     ConstantsHeader(); 
 end
 
@@ -52,6 +51,9 @@ for iNeuron=1:NEURONS
     to = idxLastAP(end)-SAFETY_WINDOW_TO_THE_PAST;
     idxLastAP(idxLastAP>to) = [];
     idxLastAP = idxLastAP(end);
+    
+    %mean over NaNs
+    rawStimuliMean = mean(data(~isnan(data(:,2)),2));
         
     %adding index column
     data = [data (1:length(data))'];
@@ -115,7 +117,7 @@ for iNeuron=1:NEURONS
         this way we unify all the filters from different neurons,
         so we could compare them.
     %}
-    accSTAStims = accSTAStims-mean(mean(accSTAStims,1));
+    accSTAStims = accSTAStims-rawStimuliMean;
     
     %see http://en.wikipedia.org/wiki/Spike-triggered_average
     STA = 1/totalAPs * accSTAStims'  * accAPs;
@@ -124,8 +126,14 @@ for iNeuron=1:NEURONS
     STA=(STA-mean(STA))./max(abs(STA));
     
     
+    %see Schwartz et al. p.489 eq (4)
+    accSTAStims = accSTAStims - ((accSTAStims.*repmat(accAPs,1,STIMS_IN_STA_WINDOW))...
+        *STA)*STA'/norm(STA)^2;
+     
     STC = accSTAStims'*(accSTAStims.*repmat(accAPs,1,STIMS_IN_STA_WINDOW)) ...
         / (totalAPs-1) - STA*STA'*totalAPs/(totalAPs-1);
+    
+     
 
     Simulation.Neuron{iNeuron}.STA = STA;
     Simulation.Neuron{iNeuron}.STC = STC;

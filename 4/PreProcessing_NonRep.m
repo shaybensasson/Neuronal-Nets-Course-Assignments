@@ -95,7 +95,7 @@ for iNeuron = 1:length(TTNonRep)
 
         %create fixed data set
         res = NaN(dataTicks, 3);
-        res(:,1) = iteration.time + onset;
+        res(:,1) = iteration.time + onset -1;
         res(:,2) = iteration.stimuli;
         res(:,3) = iteration.APs;
 

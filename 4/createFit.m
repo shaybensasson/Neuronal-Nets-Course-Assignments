@@ -20,19 +20,18 @@ function [fitresult, gof] = createFit(funcXData, funcYMeans, ...
 
 % Set up fittype and options.
 ft = 'linearinterp';
-opts = fitoptions( ft );
-opts.Normalize = 'on';
 
 % Fit model to data.
-[fitresult, gof] = fit( xData, yData, ft, opts );
+[fitresult, gof] = fit( xData, yData, ft, 'Normalize', 'on' );
 
 % Plot fit with data.
-figure( 'Name', sprintf('Interpolant Linear Fit (%s)', MODE));
 h = plot( fitresult, xData, yData );
-legend( h, 'After Linear Filter vs. Raw', 'Interpolant Linear Fit', 'Location', 'NorthEast' );
+legend( h, 'After Linear Filter vs. Rate', ...
+    sprintf('Interpolant Linear Fit (%s)', MODE), 'Location', 'NorthEast');
+
 % Label axes
 xlabel( 'After Linear Filter' );
-ylabel( 'Raw' );
+ylabel( 'Rate' );
 
 title(sprintf('Neuron #%d', iNeuron));
 grid on
