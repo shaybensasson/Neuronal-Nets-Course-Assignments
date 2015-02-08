@@ -34,15 +34,18 @@ Simulation.STIMULUS_EACH_TICKS = STIMULUS_EACH_TICKS;
 Simulation.STIMULI_PER_WINDOW = STIMULI_PER_WINDOW;
 
         
-for iNeuron = 1:length(TTNonRep)
+%TODO: for iNeuron = 1:length(TTNonRep)
+for iNeuron = 2:2
     
     fprintf('[N:#%i] ...\n', iNeuron);
     
     %allocate an array to store prepocessed data for neuron
-    neuronData.all = NaN(STIMULI_PER_WINDOW*ITERATIONS, 3);
+    wholeExperiment = StimTimeNonRep(end) - StimTimeNonRep(1);
+    neuronData.all = NaN(wholeExperiment,3);
     lastIterationIndex = 0;
     lastIterationSimuliIndex = 0;
     
+    %for iIteration = 2:2
     for iIteration = 2:ITERATIONS
         %fprintf('[N:#%i] processing iteration #%i/#%i ...\n', iNeuron, iIteration, ITERATIONS);
 
@@ -87,7 +90,7 @@ for iNeuron = 1:length(TTNonRep)
         filter = logical(timeOfAPs(:) >= onset & timeOfAPs(:) < next_onset);
         indexesOfAPs = indexes(filter);
 
-        iteration.APs = zeros(dataTicks,1);
+        iteration.APs = NaN(dataTicks,1);
         %normalize the APs, to the start of window
         APsInWindow = timeOfAPs(indexesOfAPs)-onset + 1; %the index is 1 based
         APsInWindow(APsInWindow>dataTicks)=[]; %remove aps out of ticks range
@@ -107,8 +110,8 @@ for iNeuron = 1:length(TTNonRep)
         lastIterationIndex = nextIterationIndex-1;
     end %iIteration
 
-    %remove NaN rows
-    Simulation.Neuron{iNeuron}.Data = neuronData.all(any(~isnan(neuronData.all),2),:);
+    %remove Preallocated unused NaN rows
+    Simulation.Neuron{iNeuron}.Data = neuronData.all(1:lastIterationIndex,:);
 end %iNeuron
 
 if (SAVE_MAT_FILE)
