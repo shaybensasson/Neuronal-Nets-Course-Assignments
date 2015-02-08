@@ -38,7 +38,8 @@ Simulation.STA_WINDOW_IN_SEC = STA_WINDOW_IN_TICKS;
 Simulation.STA_WINDOW_IN_TICKS = STA_WINDOW_IN_TICKS;
 Simulation.STIMS_IN_STA_WINDOW = STIMS_IN_STA_WINDOW;
 
-for iNeuron=1:NEURONS
+%TODO: for iNeuron=1:NEURONS
+for iNeuron=2:2
     SAFETY_WINDOW_TO_THE_PAST = STIMS_IN_STA_WINDOW*3;
     
     data = Simulation.Neuron{iNeuron}.Data;
@@ -66,9 +67,7 @@ for iNeuron=1:NEURONS
     NUM_OF_APS = length(apsTimes);
     
     %accumulate all Spike Triggered stimuli for every spike
-    accAPs = NaN(NUM_OF_APS,1);
     accSTAStims = NaN(NUM_OF_APS, STIMS_IN_STA_WINDOW);
-    totalAPs = 0;
     
     %{
 	NOTE: checking must be done only for the non-rep case,
@@ -81,6 +80,14 @@ for iNeuron=1:NEURONS
         timeOfAP = apsTimes(iAP,1);
         timeOfStimuliWindow = StimTime(idxStimuliWindow);
         timeOfStimuliNextWindow = StimTime(idxStimuliWindow+1);
+        
+        if (timeOfAP>=timeOfStimuliNextWindow) %ap after stimuli window ends
+            %go to next window
+            idxStimuliWindow = idxStimuliWindow+1;
+            
+            timeOfStimuliWindow = StimTime(idxStimuliWindow);
+            timeOfStimuliNextWindow = StimTime(idxStimuliWindow+1);
+        end
                 
         %get Spike Triggered stims
         idxOfAP = apsTimes(iAP,2);
@@ -92,49 +99,34 @@ for iNeuron=1:NEURONS
             continue;
         end
         
-        
-        %count the next bin (AP time + STA_WINDOW_IN_TICKS) APs
-        apBin = data(idxOfAP:idxOfAP+SAFETY_WINDOW_TO_THE_PAST,[1 3]);
-        apBin(apBin(:,1)<apBin(1,1)+STA_WINDOW_IN_TICKS,:)=[];
-        
-        if (apBin(end,1)>=timeOfStimuliNextWindow) %discard stims after stimuli window ends
-            %go to next window if we're after it
-            idxStimuliWindow = idxStimuliWindow+1;
-            continue;
-        end
-        
         accSTAStims(iAP,:) = apWindowStims(:,2)';
-        accAPs(iAP) = length(apBin(apBin==1));
-        totalAPs = totalAPs+accAPs(iAP);
+        
     end
     
 	%clear nans
     accSTAStims(all(isnan(accSTAStims),2),:)=[];
-    accAPs(all(isnan(accAPs),2),:)=[];
+    
+    %the total APs =
+    % (NUM_OF_APS - the ones we discarded because they're on window edges)
+    totalAPs = length(accSTAStims);
+    
+    %Normalize the raw stims by the overall mean
+    accSTAStims = accSTAStims - rawStimuliMean;
+    
+    %see Schwartz et al.
+    STA = sum(accSTAStims)./(totalAPs-1);
     
     %{
     normalize: 
         this way we unify all the filters from different neurons,
         so we could compare them.
     %}
-    accSTAStims = accSTAStims-rawStimuliMean;
-    
-    %see http://en.wikipedia.org/wiki/Spike-triggered_average
-    STA = 1/totalAPs * accSTAStims'  * accAPs;
-
-    % normalize spike-triggered average
     STA=(STA-mean(STA))./max(abs(STA));
+         
+    %see Schwartz et al.
+    stackSTA = repmat(STA,totalAPs,1);
+    STC = ((accSTAStims-stackSTA)' * (accSTAStims-stackSTA)) ./(totalAPs-1);
     
-    
-    %see Schwartz et al. p.489 eq (4)
-    accSTAStims = accSTAStims - ((accSTAStims.*repmat(accAPs,1,STIMS_IN_STA_WINDOW))...
-        *STA)*STA'/norm(STA)^2;
-     
-    STC = accSTAStims'*(accSTAStims.*repmat(accAPs,1,STIMS_IN_STA_WINDOW)) ...
-        / (totalAPs-1) - STA*STA'*totalAPs/(totalAPs-1);
-    
-     
-
     Simulation.Neuron{iNeuron}.STA = STA;
     Simulation.Neuron{iNeuron}.STC = STC;
     
@@ -145,7 +137,7 @@ for iNeuron=1:NEURONS
     so that A*V = V*D.
     %}
     
-    evals = abs(diag(D)); %just as SVD, these are variances
+    evals = diag(D); %just as SVD, these are variances
     Simulation.Neuron{iNeuron}.EigenValues = evals;
     evects = V; 
     Simulation.Neuron{iNeuron}.EigenVectors = evects;
@@ -153,7 +145,8 @@ end %iNeuron
 
 %% plot STA
 figure(1);
-for iNeuron=1:NEURONS
+for iNeuron=2:2
+%TODO: for iNeuron=1:NEURONS
     subplot(2,2, iNeuron);
     STA = Simulation.Neuron{iNeuron}.STA;
     
@@ -167,7 +160,9 @@ for iNeuron=1:NEURONS
 
 %% plot eVals
 figure(2);
-for iNeuron=1:NEURONS
+
+for iNeuron=2:2
+%TODO: for iNeuron=1:NEURONS
     subplot(2,2, iNeuron);
     evals = Simulation.Neuron{iNeuron}.EigenValues;
     
