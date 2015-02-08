@@ -38,18 +38,21 @@ Simulation.STA_WINDOW_IN_SEC = STA_WINDOW_IN_TICKS;
 Simulation.STA_WINDOW_IN_TICKS = STA_WINDOW_IN_TICKS;
 Simulation.STIMS_IN_STA_WINDOW = STIMS_IN_STA_WINDOW;
 
+SAFETY_WINDOW_TO_THE_PAST_IN_STIMS = STIMS_IN_STA_WINDOW*3;
+SAFETY_WINDOW_TO_THE_PAST_IN_TICKS = SAFETY_WINDOW_TO_THE_PAST_IN_STIMS * ...
+            Simulation.STIMULUS_EACH_TICKS;
+    
 %TODO: for iNeuron=1:NEURONS
 for iNeuron=2:2
-    SAFETY_WINDOW_TO_THE_PAST = STIMS_IN_STA_WINDOW*3;
     
     data = Simulation.Neuron{iNeuron}.Data;
     %get rid of data that has less history than STA safety window
     idxFirstAP = find(data(:,3)==1, 100, 'first');
-    idxFirstAP(idxFirstAP<=SAFETY_WINDOW_TO_THE_PAST) = [];
+    idxFirstAP(idxFirstAP<=SAFETY_WINDOW_TO_THE_PAST_IN_STIMS) = [];
     idxFirstAP = idxFirstAP(1);
     
     idxLastAP = find(data(:,3)==1, 100, 'last');
-    to = idxLastAP(end)-SAFETY_WINDOW_TO_THE_PAST;
+    to = idxLastAP(end)-SAFETY_WINDOW_TO_THE_PAST_IN_STIMS;
     idxLastAP(idxLastAP>to) = [];
     idxLastAP = idxLastAP(end);
     
@@ -68,6 +71,8 @@ for iNeuron=2:2
     
     %accumulate all Spike Triggered stimuli for every spike
     accSTAStims = NaN(NUM_OF_APS, STIMS_IN_STA_WINDOW);
+    accSTAWindow = zeros(1,STA_WINDOW_IN_TICKS+SAFETY_WINDOW_TO_THE_PAST_IN_TICKS);
+    accSTAWindowCounters = zeros(1,STA_WINDOW_IN_TICKS+SAFETY_WINDOW_TO_THE_PAST_IN_TICKS);
     
     %{
 	NOTE: checking must be done only for the non-rep case,
@@ -91,7 +96,7 @@ for iNeuron=2:2
                 
         %get Spike Triggered stims
         idxOfAP = apsTimes(iAP,2);
-        apWindowStims = data(idxOfAP-SAFETY_WINDOW_TO_THE_PAST:idxOfAP-1, [1 2]);
+        apWindowStims = data(idxOfAP-SAFETY_WINDOW_TO_THE_PAST_IN_STIMS:idxOfAP-1, [1 2]);
         apWindowStims(isnan(apWindowStims(:,2)), :)=[];
         apWindowStims = apWindowStims(find(apWindowStims(:,2), STIMS_IN_STA_WINDOW, 'last'),:);
         
@@ -101,20 +106,46 @@ for iNeuron=2:2
         
         accSTAStims(iAP,:) = apWindowStims(:,2)';
         
+        apWindowStims(:,1) = timeOfAP - apWindowStims(:,1);
+        accSTAWindow(apWindowStims(:,1)) = accSTAWindow(apWindowStims(:,1)) + apWindowStims(:,2)';
+        accSTAWindowCounters(apWindowStims(:,1)) = ...
+            accSTAWindowCounters(apWindowStims(:,1)) + logical(apWindowStims(:,1))';
+                
     end
     
-	%clear nans
+    %clear nans
     accSTAStims(all(isnan(accSTAStims),2),:)=[];
     
-    %the total APs =
-    % (NUM_OF_APS - the ones we discarded because they're on window edges)
-    totalAPs = length(accSTAStims);
+    accSTAWindow = accSTAWindow(1:STA_WINDOW_IN_TICKS);
+    accSTAWindowCounters = accSTAWindowCounters(1:STA_WINDOW_IN_TICKS);
+    
+    accSTAWindow(accSTAWindowCounters==0) = NaN;
+    accSTAWindowCounters(accSTAWindowCounters==0) = NaN;
+    accSTAWindow = accSTAWindow./accSTAWindowCounters;
+    
+    %% STA creation
+    %binnify the STA
+    %NOTE: we can choose even smaller binSize (ex. 100 is still OK)
+    BIN_SIZE = Simulation.STIMULUS_EACH_TICKS;
+    bins = 1:BIN_SIZE:STA_WINDOW_IN_TICKS;
+    [bincounts,binIndex] = histc(1:STA_WINDOW_IN_TICKS,bins);
+
+    %insert any unbinned data to last bin
+    unbinnedIndex = max(binIndex);
+    %last bin was not created
+    if (~bincounts(end))
+        unbinnedIndex = unbinnedIndex+1;
+    end
+    binIndex(binIndex==0)=unbinnedIndex;
+
+    %group by times and mean stim vals
+    meanIgnoreNaNs = @(vector) mean(vector(~isnan(vector(:))));
+    grp_mean = accumarray(binIndex', accSTAWindow', [length(bins) 1], meanIgnoreNaNs, NaN);
+
+    STA = grp_mean';
     
     %Normalize the raw stims by the overall mean
-    accSTAStims = accSTAStims - rawStimuliMean;
-    
-    %see Schwartz et al.
-    STA = sum(accSTAStims)./(totalAPs-1);
+    STA = STA - rawStimuliMean;
     
     %{
     normalize: 
@@ -122,7 +153,13 @@ for iNeuron=2:2
         so we could compare them.
     %}
     STA=(STA-mean(STA))./max(abs(STA));
-         
+    
+    %% STC calculation
+    
+    %the total APs =
+    % (NUM_OF_APS - the ones we discarded because they're on window edges)
+    totalAPs = length(accSTAStims);
+    
     %see Schwartz et al.
     stackSTA = repmat(STA,totalAPs,1);
     STC = ((accSTAStims-stackSTA)' * (accSTAStims-stackSTA)) ./(totalAPs-1);
@@ -149,6 +186,8 @@ for iNeuron=2:2
 %TODO: for iNeuron=1:NEURONS
     subplot(2,2, iNeuron);
     STA = Simulation.Neuron{iNeuron}.STA;
+    
+    STA = fliplr(STA);
     
     x = linspace(-STA_WINDOW_IN_MS, 0, length(STA));
     plot(x, STA);
