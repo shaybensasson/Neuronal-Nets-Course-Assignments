@@ -1,9 +1,10 @@
-STC = ((accSTAStims-stackSTA)' * (accSTAStims-stackSTA)) ./(totalAPs-1);
+map = [43, 87, 154; ... %blue
+    32, 162, 58; ... %green
+    0, 0, 0; ... % black
+    207, 210, 146; ... %yello for stims
+    205, 151, 151]; %red for aps
 
-accSTC = zeros(30,30);
-for i=1:totalAPs
-    accSTC = accSTC + (accSTAStims(i,:)-STA)'*(accSTAStims(i,:)-STA);
-end
+map = map./255;
 
-STC2 = accSTC./(totalAPs-1);
-
+h = plot(1:10,1:10);
+h.Color = map(5,:);

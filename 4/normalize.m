@@ -1,4 +1,4 @@
-function [ result ] = normalize(a, NORMALIZE, NORMALIZE_BY_MAX);
+function [ result ] = normalize(a, NORMALIZE, NORMALIZE_BY_MAX)
 %NORMALIZE Summary of this function goes here
 %   Detailed explanation goes here
     result = a;

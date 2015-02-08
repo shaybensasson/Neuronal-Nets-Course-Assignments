@@ -187,6 +187,7 @@ for iNeuron=2:2
     subplot(2,2, iNeuron);
     STA = Simulation.Neuron{iNeuron}.STA;
     
+    %NOTE: we flip before plotting
     STA = fliplr(STA);
     
     x = linspace(-STA_WINDOW_IN_MS, 0, length(STA));
@@ -206,12 +207,15 @@ for iNeuron=2:2
     evals = Simulation.Neuron{iNeuron}.EigenValues;
     
     plot(evals, 'o'); % examine eigenvalues
+    text(1:length(evals), evals+1,num2str(evals, '%.4f'), 'Rotation', 45);
     
     title(sprintf('Eigenvalues (of STC) for Neuron #%d', iNeuron));
     xlabel('EigenValue/EigenVector index');
     ylabel('Variance');
- end    
-    
+end    
+
+ 
+%% save
 if (SAVE_MAT_FILE)
     fprintf('Saving simulation output ...\n');
     save(['AfterSTA_' MODE '.mat'], 'Simulation');
