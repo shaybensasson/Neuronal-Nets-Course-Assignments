@@ -4,6 +4,31 @@
 # Custom for Visual Studio
 *.cs     diff=csharp
 
+# These files are binary and should be left untouched
+# see https://gist.github.com/kenlimmj/11064956
+# (binary is a macro for -text -diff)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.mov binary
+*.mp4 binary
+*.mp3 binary
+*.flv binary
+*.fla binary
+*.swf binary
+*.gz binary
+*.zip binary
+*.7z binary
+*.ttf binary
+
+#see http://www.mathworks.com/help/matlab/matlab_prog/set-up-git-source-control.html?refresh=true
+*.mat binary
+*.p binary
+*.slx binary
+*.mdl binary
+
 # Standard to msysgit
 *.doc	 diff=astextplain
 *.DOC	 diff=astextplain
