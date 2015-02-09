@@ -1,22 +1,23 @@
 close all;
+clearvars -except Sim_Rep Sim_NonRep;
 ConstantsHeader();
 
 %choose Rep or NonRep
 MODE = 'NonRep';
 
-if (~exist('Simulation','var') || (~strcmp(Simulation.Mode,MODE)))
-    clearvars -except MODE;
-    load(['PreProcessed_' MODE '.mat'])
-    ConstantsHeader(); 
-end
-
+load(['FiringRate_' MODE '.mat'])
+    
 switch MODE
     case 'Rep'
+        Simulation = Sim_Rep;
+        clearvars Sim_Rep;
         StimTime = Simulation.StimTimeRep;
     case 'NonRep'
+        Simulation = Sim_NonRep;
+        clearvars Sim_NonRep;
         StimTime = Simulation.StimTimeNonRep;
     otherwise
-        ME = MException('STA:noSuchMODE', ...
+        ME = MException('noSuchMODE', ...
             'no such MODE is found!');
         throw(ME)
 end
@@ -38,14 +39,22 @@ Simulation.STA_WINDOW_IN_SEC = STA_WINDOW_IN_TICKS;
 Simulation.STA_WINDOW_IN_TICKS = STA_WINDOW_IN_TICKS;
 Simulation.STIMS_IN_STA_WINDOW = STIMS_IN_STA_WINDOW;
 
+Simulation.PSTH_BIN_SIZES = [Simulation.STIMULUS_EACH_TICKS; ... %sampling freq
+             Simulation.STIMULUS_EACH_TICKS*3; ... 100 msec          
+             Simulation.STIMULUS_EACH_TICKS*5; ... ~150 msec
+             Simulation.STIMULUS_EACH_TICKS*10; ... ~330 msec
+             Simulation.STIMULUS_EACH_TICKS*15; ... ~500 msec
+             Simulation.STIMULUS_EACH_TICKS*30]; %1000 msec = 1 sec 
+
 SAFETY_WINDOW_TO_THE_PAST_IN_STIMS = STIMS_IN_STA_WINDOW*3;
 SAFETY_WINDOW_TO_THE_PAST_IN_TICKS = SAFETY_WINDOW_TO_THE_PAST_IN_STIMS * ...
             Simulation.STIMULUS_EACH_TICKS;
     
-%TODO: for iNeuron=1:NEURONS
-for iNeuron=2:2
+for iNeuron=1:NEURONS
+   
+    fprintf('[N:#%i] ...\n', iNeuron);
     
-    data = Simulation.Neuron{iNeuron}.Data;
+    data = Simulation.Neuron{iNeuron}.RawData;
     %get rid of data that has less history than STA safety window
     idxFirstAP = find(data(:,3)==1, 100, 'first');
     idxFirstAP(idxFirstAP<=SAFETY_WINDOW_TO_THE_PAST_IN_STIMS) = [];
@@ -60,6 +69,7 @@ for iNeuron=2:2
     rawStimuliMean = mean(data(~isnan(data(:,2)),2));
         
     %adding index column
+    %discard warning we have 4 neurons
     data = [data (1:length(data))'];
     
     %get only AP times (from the first AP that has safety window to the
@@ -125,8 +135,8 @@ for iNeuron=2:2
     
     %% STA creation
     %binnify the STA
-    %NOTE: we can choose even smaller binSize (ex. 100 is still OK)
-    BIN_SIZE = Simulation.STIMULUS_EACH_TICKS;
+    %NOTE: we can choose even smaller binSize (ex. 100 is still OK, yet noisier)
+    BIN_SIZE = Simulation.PSTH_BIN_SIZES(1); %sampFreq
     bins = 1:BIN_SIZE:STA_WINDOW_IN_TICKS;
     [bincounts,binIndex] = histc(1:STA_WINDOW_IN_TICKS,bins);
 
@@ -182,8 +192,8 @@ end %iNeuron
 
 %% plot STA
 figure(1);
-for iNeuron=2:2
-%TODO: for iNeuron=1:NEURONS
+
+for iNeuron=1:NEURONS
     subplot(2,2, iNeuron);
     STA = Simulation.Neuron{iNeuron}.STA;
     
@@ -201,8 +211,7 @@ for iNeuron=2:2
 %% plot eVals
 figure(2);
 
-for iNeuron=2:2
-%TODO: for iNeuron=1:NEURONS
+for iNeuron=1:NEURONS
     subplot(2,2, iNeuron);
     evals = Simulation.Neuron{iNeuron}.EigenValues;
     
@@ -212,13 +221,24 @@ for iNeuron=2:2
     title(sprintf('Eigenvalues (of STC) for Neuron #%d', iNeuron));
     xlabel('EigenValue/EigenVector index');
     ylabel('Variance');
-end    
+end
 
- 
+
+switch MODE
+    case 'Rep'
+        Sim_Rep = Simulation;
+    case 'NonRep'
+        Sim_NonRep = Simulation;
+    otherwise
+        ME = MException('noSuchMODE', ...
+            'no such MODE is found!');
+        throw(ME)
+end
+
 %% save
 if (SAVE_MAT_FILE)
     fprintf('Saving simulation output ...\n');
-    save(['AfterSTA_' MODE '.mat'], 'Simulation');
+    save(['AfterSTA_' MODE '.mat'], ['Sim_' MODE]);
 end
 
 %load gong 

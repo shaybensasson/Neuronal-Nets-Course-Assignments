@@ -1,4 +1,4 @@
-clear all;
+clearvars -except Sim_Rep;
 if (~exist('TTNonRep','var'))
     load('FixedData.mat')
 end
@@ -34,8 +34,7 @@ Simulation.STIMULUS_EACH_TICKS = STIMULUS_EACH_TICKS;
 Simulation.STIMULI_PER_WINDOW = STIMULI_PER_WINDOW;
 
         
-%TODO: for iNeuron = 1:length(TTNonRep)
-for iNeuron = 2:2
+for iNeuron = 1:length(TTNonRep)
     
     fprintf('[N:#%i] ...\n', iNeuron);
     
@@ -111,10 +110,12 @@ for iNeuron = 2:2
     end %iIteration
 
     %remove Preallocated unused NaN rows
-    Simulation.Neuron{iNeuron}.Data = neuronData.all(1:lastIterationIndex,:);
+    Simulation.Neuron{iNeuron}.RawData = neuronData.all(1:lastIterationIndex,:);
 end %iNeuron
+
+Sim_NonRep = Simulation;
 
 if (SAVE_MAT_FILE)
     fprintf('Saving simulation output ...\n');
-    save('PreProcessed_NonRep.mat', 'Simulation');
+    save('PreProcessed_NonRep.mat', 'Sim_NonRep');
 end

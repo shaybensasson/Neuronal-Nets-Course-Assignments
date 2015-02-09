@@ -1,65 +1,49 @@
 close all;
-
+clearvars -except Sim_Rep Sim_NonRep;
 ConstantsHeader();
 
 %choose Rep or NonRep
 MODE = 'NonRep';
 
-if (~exist('Simulation','var') || (~strcmp(Simulation.Mode,MODE)) || ...
-        Simulation.Phase < CONSTANTS.PHASES.LINEARFILTER)
-    clearvars -except MODE;
-    load(['AfterLinearFilter_' MODE '.mat'])
-    ConstantsHeader();
-end
-
+load(['AfterLinearFilter_' MODE '.mat'])
+    
 switch MODE
     case 'Rep'
+        Simulation = Sim_Rep;
+        clearvars Sim_Rep;
         StimTime = Simulation.StimTimeRep;
     case 'NonRep'
+        Simulation = Sim_NonRep;
+        clearvars Sim_NonRep;
         StimTime = Simulation.StimTimeNonRep;
     otherwise
-        ME = MException('STA:noSuchMODE', ...
+        ME = MException('noSuchMODE', ...
             'no such MODE is found!');
         throw(ME)
 end
 
-SAVE_MAT_FILE = 0;
+SAVE_MAT_FILE = 1;
 
 NEURONS = length(Simulation.Neuron);
-SECONDS_IN_WINDOW = Simulation.SECONDS_IN_WINDOW;
-TICKS_IN_WINDOW = Simulation.TICKS_IN_WINDOW;
-TICKS_IN_SECOND = Simulation.TICKS_IN_SECOND;
-SECONDS_OF_RATE_TO_DISPLAY = Simulation.SECONDS_OF_RATE_TO_DISPLAY;
-ITERATIONS = Simulation.ITERATIONS;
-PSTH_BIN_SIZES = [Simulation.STIMULUS_EACH_TICKS; ... %sampling freq (1)
-             Simulation.STIMULUS_EACH_TICKS*3; ... 100 msec (2)          
-             Simulation.STIMULUS_EACH_TICKS*5; ... ~150 msec (3)
-             Simulation.STIMULUS_EACH_TICKS*10; ... ~330 msec (4)
-             Simulation.STIMULUS_EACH_TICKS*15; ... ~500 msec (5)
-             Simulation.STIMULUS_EACH_TICKS*30]; %1000 msec = 1 sec (6)
-
              
-STIMULI_PER_WINDOW = Simulation.STIMULI_PER_WINDOW;
 %store for later usage
 Simulation.Phase = CONSTANTS.PHASES.GENERATOR;
-Simulation.PSTH_BIN_SIZES = PSTH_BIN_SIZES;
 
-for iBinSize=4:4
-%TODO: for iBinSize=1:numel(PSTH_BIN_SIZES)
-    curBinSize = PSTH_BIN_SIZES(iBinSize);
+for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
+    curBinSize = Simulation.RATE_BIN_SIZES(iBinSize);
     
     figure( 'Name', sprintf('Generator (%s), Bin size: %.2f', ...
         MODE, curBinSize));
     
-    for iNeuron=2:2
-    %for iNeuron=1:NEURONS
-        %TODO: subplot(2,2,iNeuron);
+    for iNeuron=1:NEURONS
+        subplot(2,2,iNeuron);
         curNeuron = Simulation.Neuron{iNeuron};
         fprintf('[Bsz,N:#%d,#%d] ...\n', iBinSize, iNeuron);
 
         %get binned psth and stims after K
-        psth = binned(:,2);
-        stimsAfterLinearFilter = binned(:,3);
+        rateData = curNeuron.Rate{iBinSize}.Data;
+        psth = rateData(:,2);
+        stimsAfterLinearFilter = rateData(:,3);
         
         %% create the fit
         curveFitData = [stimsAfterLinearFilter psth];
@@ -91,15 +75,16 @@ for iBinSize=4:4
 
         %create the 'function' using Interpolant Linear Fit
         [fitresult, gof] = createFit(funcXData,funcYMeans,iNeuron,MODE);
-        curNeuron.PSTH{iBinSize}.BIN_SIZE = curBinSize;
-        curNeuron.PSTH{iBinSize}.Generator = fitresult;
+        curNeuron.Rate{iBinSize}.Generator = fitresult;
                 
+        NORMALIZE = 1; NORMALIZE_BY_MAX=1;
         %% apply the generator
         stimsAfterGenerator = normalize( ...
             fitresult(stimsAfterLinearFilter), ...
             NORMALIZE, NORMALIZE_BY_MAX);
         
-        %TODO: curNeuron.PSTH{iBinSize}.RVsRest = accBinned;
+        rateData(:,4) = stimsAfterGenerator;
+        curNeuron.Rate{iBinSize}.Data = rateData;
         
         %% create statistics
                 
@@ -107,16 +92,28 @@ for iBinSize=4:4
         SSEk = norm(psth-stimsAfterLinearFilter,2)^2; %lower is less err
         SSEg = norm(psth-stimsAfterGenerator,2)^2; %lower is less err
                 
-        curNeuron.PSTH{iBinSize}.SSEk = SSEk;
-        curNeuron.PSTH{iBinSize}.SSEg = SSEg;
+        curNeuron.Rate{iBinSize}.SSEk = SSEk;
+        curNeuron.Rate{iBinSize}.SSEg = SSEg;
         
-        %TODO: Simulation.Neuron{iNeuron} = curNeuron;    
+        Simulation.Neuron{iNeuron} = curNeuron;    
     end %for iNeuron
 end %for iBinSize
 
+switch MODE
+    case 'Rep'
+        Sim_Rep = Simulation;
+    case 'NonRep'
+        Sim_NonRep = Simulation;
+    otherwise
+        ME = MException('noSuchMODE', ...
+            'no such MODE is found!');
+        throw(ME)
+end
+
+
 if (SAVE_MAT_FILE)
     fprintf('Saving simulation output ...\n');
-    save(['AfterGenerator_' MODE '.mat'], 'Simulation');
+    save(['AfterGenerator_' MODE '.mat'], ['Sim_' MODE]);
 end
         
 beep('on');
