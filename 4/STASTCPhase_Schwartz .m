@@ -49,22 +49,13 @@ Simulation.PSTH_BIN_SIZES = [Simulation.STIMULUS_EACH_TICKS; ... %sampling freq
 SAFETY_WINDOW_TO_THE_PAST_IN_STIMS = STIMS_IN_STA_WINDOW*3;
 SAFETY_WINDOW_TO_THE_PAST_IN_TICKS = SAFETY_WINDOW_TO_THE_PAST_IN_STIMS * ...
             Simulation.STIMULUS_EACH_TICKS;
-
-minSTAValue = inf; maxSTAValue = -inf;
+    
+%for iNeuron=2:2
 for iNeuron=1:NEURONS
    
     fprintf('[N:#%i] ...\n', iNeuron);
     
     data = Simulation.Neuron{iNeuron}.RawData;
-    %get rid of data that has less history than STA safety window
-    idxFirstAP = find(data(:,3)==1, 100, 'first');
-    idxFirstAP(idxFirstAP<=SAFETY_WINDOW_TO_THE_PAST_IN_STIMS) = [];
-    idxFirstAP = idxFirstAP(1);
-    
-    idxLastAP = find(data(:,3)==1, 100, 'last');
-    to = idxLastAP(end)-SAFETY_WINDOW_TO_THE_PAST_IN_STIMS;
-    idxLastAP(idxLastAP>to) = [];
-    idxLastAP = idxLastAP(end);
     
     %mean over NaNs
     rawStimuliMean = mean(data(~isnan(data(:,2)),2));
@@ -73,17 +64,18 @@ for iNeuron=1:NEURONS
     %discard warning we have 4 neurons
     data = [data (1:length(data))'];
     
-    %get only AP times (from the first AP that has safety window to the
-    %past)
-    apsTimes = data(idxFirstAP:idxLastAP,:);
-    apsTimes = apsTimes(apsTimes(:,3)==1, [1 4]);
+    %get only stim data
+    dataForStimsOnly = data(~isnan(data(:,2)),[1 2 4]);
     
-    NUM_OF_APS = length(apsTimes);
+    totalBins = dataForStimsOnly(end,1)-dataForStimsOnly(1,1);
+    totalBins = ceil(totalBins/Simulation.STIMULUS_EACH_TICKS/STIMS_IN_STA_WINDOW);
     
-    %accumulate all Spike Triggered stimuli for every spike
-    accSTAStims = NaN(NUM_OF_APS, STIMS_IN_STA_WINDOW);
-    accSTAWindow = zeros(1,STA_WINDOW_IN_TICKS+SAFETY_WINDOW_TO_THE_PAST_IN_TICKS);
-    accSTAWindowCounters = zeros(1,STA_WINDOW_IN_TICKS+SAFETY_WINDOW_TO_THE_PAST_IN_TICKS);
+    totalStims = length(dataForStimsOnly);
+    
+    %accumulate all Spike Triggered stimuli for each bin
+    accSTAStims = NaN(totalBins, STIMS_IN_STA_WINDOW);
+    totalAps = 0; %total aps counted
+    totalActualBins = 0; %actual bins omitting the discarded ones
     
     %{
 	NOTE: checking must be done only for the non-rep case,
@@ -91,70 +83,54 @@ for iNeuron=1:NEURONS
 	%}
 	idxStimuliWindow = 1;
     
-    for iAP=1:NUM_OF_APS %for every AP
+    for iBin=2:totalBins %for every bin
         
-        timeOfAP = apsTimes(iAP,1);
         timeOfStimuliWindow = StimTime(idxStimuliWindow);
         timeOfStimuliNextWindow = StimTime(idxStimuliWindow+1);
         
-        if (timeOfAP>=timeOfStimuliNextWindow) %ap after stimuli window ends
+        idxFirstStim = ((iBin-2)*STIMS_IN_STA_WINDOW)+1;
+        idxLastStim = idxFirstStim+STIMS_IN_STA_WINDOW-1;
+        
+        %get stims on bin
+        idxFirstStimOnNextBin = idxLastStim+1;
+        idxLastStimOnNextBin = idxFirstStimOnNextBin+STIMS_IN_STA_WINDOW-1;
+        
+        if (idxLastStimOnNextBin > totalStims)
+            %we've gone thru all stimuli
+            break;
+        end
+            
+        stimsOnBin = dataForStimsOnly(idxFirstStim:idxLastStim, 2)'; 
+        
+        %The APs that the stims in the prev bin triggered
+        apWindowFromOnData = dataForStimsOnly(idxLastStim,3)+1;
+        apWindowToOnData = dataForStimsOnly(idxLastStimOnNextBin,3);
+        
+        
+        timeOfLastAP = data(apWindowToOnData, 1);
+        
+        if (timeOfLastAP>timeOfStimuliNextWindow) %ap after stimuli window ends
             %go to next window
             idxStimuliWindow = idxStimuliWindow+1;
             
-            timeOfStimuliWindow = StimTime(idxStimuliWindow);
-            timeOfStimuliNextWindow = StimTime(idxStimuliWindow+1);
-        end
-                
-        %get Spike Triggered stims
-        idxOfAP = apsTimes(iAP,2);
-        apWindowStims = data(idxOfAP-SAFETY_WINDOW_TO_THE_PAST_IN_STIMS:idxOfAP-1, [1 2]);
-        apWindowStims(isnan(apWindowStims(:,2)), :)=[];
-        apWindowStims = apWindowStims(find(apWindowStims(:,2), STIMS_IN_STA_WINDOW, 'last'),:);
-        
-        if (apWindowStims(1,1)<timeOfStimuliWindow) %discard stims before stimuli window starts
+            %discard this bin
             continue;
         end
         
-        accSTAStims(iAP,:) = apWindowStims(:,2)';
+        totalActualBins = totalActualBins+1;
         
-        apWindowStims(:,1) = timeOfAP - apWindowStims(:,1);
-        accSTAWindow(apWindowStims(:,1)) = accSTAWindow(apWindowStims(:,1)) + apWindowStims(:,2)';
-        accSTAWindowCounters(apWindowStims(:,1)) = ...
-            accSTAWindowCounters(apWindowStims(:,1)) + logical(apWindowStims(:,1))';
-                
+        totalApsOnNextBin = nansum(data(apWindowFromOnData:apWindowToOnData, 3));
+        accSTAStims(totalActualBins,:) = stimsOnBin * totalApsOnNextBin;
+        totalAps = totalAps+totalApsOnNextBin;
+        
     end
     
     %clear nans
-    accSTAStims(all(isnan(accSTAStims),2),:)=[];
+    accSTAStims = accSTAStims(1:totalActualBins, :);
     
-    accSTAWindow = accSTAWindow(1:STA_WINDOW_IN_TICKS);
-    accSTAWindowCounters = accSTAWindowCounters(1:STA_WINDOW_IN_TICKS);
+    STA = sum(accSTAStims)*(1/totalBins);
     
-    accSTAWindow(accSTAWindowCounters==0) = NaN;
-    accSTAWindowCounters(accSTAWindowCounters==0) = NaN;
-    accSTAWindow = accSTAWindow./accSTAWindowCounters;
-    
-    %% STA creation
-    %binnify the STA
-    %NOTE: we can choose even smaller binSize (ex. 100 is still OK, yet noisier)
-    BIN_SIZE = Simulation.PSTH_BIN_SIZES(1); %sampFreq
-    bins = 1:BIN_SIZE:STA_WINDOW_IN_TICKS;
-    [bincounts,binIndex] = histc(1:STA_WINDOW_IN_TICKS,bins);
-
-    %insert any unbinned data to last bin
-    unbinnedIndex = max(binIndex);
-    %last bin was not created
-    if (~bincounts(end))
-        unbinnedIndex = unbinnedIndex+1;
-    end
-    binIndex(binIndex==0)=unbinnedIndex;
-
-    %group by times and mean stim vals
-    grp_mean = accumarray(binIndex', accSTAWindow', [length(bins) 1], @nanmean, NaN);
-
-    STA = grp_mean';
-    
-    %Normalize the raw stims by the overall mean
+    %Normalize by the overall mean
     STA = STA - rawStimuliMean;
     
     %{
@@ -164,25 +140,12 @@ for iNeuron=1:NEURONS
     %}
     STA=(STA-mean(STA))./max(abs(STA));
     
-    %use for ploting
-    minSTAValue = min(minSTAValue, min(STA));
-    maxSTAValue = max(maxSTAValue, max(STA));
-    
     %% STC calculation
     
-    %the total APs =
-    % (NUM_OF_APS - the ones we discarded because they're on window edges)
-    totalAPs = length(accSTAStims);
     
-    %FUTURE compare vs pillow: 
     %see Schwartz et al.
-    %stackSTA = repmat(STA,totalAPs,1);
-    %STC = ((accSTAStims-stackSTA)' * (accSTAStims-stackSTA)) ./(totalAPs-1);
-    
-    %see
-    %http://pillowlab.cps.utexas.edu/teaching/CompNeuro10/slides/slides07_STC_LNPmodel.pdf,
-    %slide 43
-    STC = accSTAStims' * accSTAStims ./(totalAPs);
+    stackSTA = repmat(STA,length(accSTAStims),1);
+    STC = ((accSTAStims-stackSTA)' * (accSTAStims-stackSTA)) ./(totalAps-1);
     
     Simulation.Neuron{iNeuron}.STA = STA;
     Simulation.Neuron{iNeuron}.STC = STC;
@@ -203,6 +166,7 @@ end %iNeuron
 %% plot STA
 figure(1);
 
+%for iNeuron=2:2
 for iNeuron=1:NEURONS
     subplot(2,2, iNeuron);
     STA = Simulation.Neuron{iNeuron}.STA;
@@ -212,10 +176,6 @@ for iNeuron=1:NEURONS
     
     x = linspace(-STA_WINDOW_IN_MS, 0, length(STA));
     plot(x, STA);
-    
-    
-    ylim([minSTAValue-0.1 maxSTAValue+0.1]);
-    
 
     title(sprintf('STA for Neuron #%d', iNeuron));
     xlabel('Time (ms)');
@@ -225,6 +185,7 @@ for iNeuron=1:NEURONS
 %% plot eVals
 figure(2);
 
+%for iNeuron=2:2
 for iNeuron=1:NEURONS
     subplot(2,2, iNeuron);
     evals = Simulation.Neuron{iNeuron}.EigenValues;
