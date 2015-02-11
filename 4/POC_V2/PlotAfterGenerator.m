@@ -2,13 +2,11 @@ close all;
 clearvars -except Sim_Rep Sim_NonRep;
 ConstantsHeader();
 
-
 %choose Rep or NonRep
-MODE = 'Rep';
+MODE = 'NonRep';
 
 load(['AfterGenerator_' MODE '.mat'])
-
-
+    
 switch MODE
     case 'Rep'
         Simulation = Sim_Rep;
@@ -29,21 +27,14 @@ NEURONS = length(Simulation.Neuron);
 %iBinSize = 4;
 %iNeuron = 2;
 
-%for iBinSize=4:4
-for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
+ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
     curBinSize = Simulation.RATE_BIN_SIZES(iBinSize);
     
-    title = sprintf('After Generator (%s), Bin size: %.2f', ...
-        MODE, curBinSize);
+    figure( 'Name', sprintf('After Generator (%s), Bin size: %.2f', ...
+        MODE, curBinSize));
     
-    hf = figure(iBinSize);
-    hf.Name = title;
-    
-    %for iNeuron=2:2
     for iNeuron=1:NEURONS
-        hs = subplot(2,2,iNeuron);
-        
-        PositionOfSubplot = hs.Position;
+        subplot(2,2,iNeuron);
         
         curNeuron = Simulation.Neuron{iNeuron};
 
@@ -105,13 +96,14 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
         set(AX,'NextPlot','add')
         H1.LineStyle = 'none'; H1.Marker = '.'; 
         H1.Color = map(4, :);  
-        
+        H1.Color(4) = 0.30;  % 70% transparent
+
         AX(1).YLim = [min(stimValues) max(stimValues)];
         AX(1).YColor = map(4, :);
 
         H2.LineStyle = 'none'; H2.Marker = 'o';
         H2.Color = map(5, :);
-        
+        H2.Color(4) = 0.30;  % 70% transparent
         AX(2).YLim = [minValue maxValue];
         AX(2).YColor = map(1, :);
 
@@ -152,30 +144,15 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
         Corg = xcorr(psth,stimsAfterGenerator,0,'coeff'); % 1 if are equal
 
         yText = minValue-(minValue/10);
-        
-        
-        ha = axes('Position',PositionOfSubplot,'Xlim',[0 1],'Ylim',[0 1],'Box','off','Visible','off','Units','normalized', 'clipping' , 'off');
-        
-        text(0, 0.05, ...
-            sprintf(['SSE after %s kernel: %.2f;\nSSE after Generator: %.2f;\n' ...
+        text(timesToPlot(1), yText, ...
+            sprintf(['SSE after STA kernel: %.2f;\nSSE after Generator: %.2f;\n' ...
             'Cor.k: %.4f;\nCor.g: %.4f'], ...
-                iif(Simulation.UsingSTA,'STA','STC'), ...
-                SSEk, SSEg, Cork, Corg), ...
-        'HorizontalAlignment' ,'left','VerticalAlignment', 'bottom');
-    
+                SSEk, SSEg, Cork, Corg));
+            
         
-    end %iNeuron
+    end
     
-    CreateTitleForSubplots(['\bf ' title]);
-    
-    r = 150; %pixels pre inch
-    set(hf, 'PaperUnits', 'inches');
-    set(hf, 'PaperPosition', [0 0 2880 1620]/r); %x_width=10cm y_width=15cm
-
-    saveas(iBinSize, ['RvsRest_' MODE '_BinSize_' ...
-        sprintf('%d', floor(curBinSize)) ...
-        '_UsingSTA_' num2str(Simulation.UsingSTA)], 'png');
- end %iBinSize
+ end
  
     
 

@@ -3,7 +3,7 @@ clearvars -except Sim_Rep Sim_NonRep;
 ConstantsHeader();
 
 %choose Rep or NonRep
-MODE = 'Rep';
+MODE = 'NonRep';
 
 load(['FiringRate_' MODE '.mat'])
     
@@ -217,35 +217,26 @@ for iNeuron=1:NEURONS
     ylim([minSTAValue-0.1 maxSTAValue+0.1]);
     
 
-    title(sprintf('Neuron #%d', iNeuron));
+    title(sprintf('STA for Neuron #%d', iNeuron));
     xlabel('Time (ms)');
     ylabel('Light levels');
-    
-    CreateTitleForSubplots('\bf STA');
-end
- 
-saveas(1, ['STA_' MODE], 'png');
+ end
 
 %% plot eVals
-h = figure(2);
+figure(2);
 
 for iNeuron=1:NEURONS
     subplot(2,2, iNeuron);
     evals = Simulation.Neuron{iNeuron}.EigenValues;
     
     plot(evals, 'o'); % examine eigenvalues
-    text((1:length(evals))-0.25, evals+0.5,num2str(evals, '%.4f'), 'Rotation', 90);
-    ylim([min(evals) max(evals)+2]);
+    text(1:length(evals), evals+1,num2str(evals, '%.4f'), 'Rotation', 45);
     
-    
-    title(sprintf('Neuron #%d', iNeuron));
+    title(sprintf('Eigenvalues (of STC) for Neuron #%d', iNeuron));
     xlabel('EigenValue/EigenVector index');
     ylabel('Variance');
-    
-    CreateTitleForSubplots('\bf Eigenvalues (of STC)');
 end
 
-saveas(h, ['STC_' MODE], 'png');
 
 switch MODE
     case 'Rep'

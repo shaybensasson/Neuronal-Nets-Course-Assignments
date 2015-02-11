@@ -3,7 +3,7 @@ clearvars -except Sim_Rep Sim_NonRep;
 ConstantsHeader();
 
 %choose Rep or NonRep
-MODE = 'Rep';
+MODE = 'NonRep';
 
 load(['AfterLinearFilter_' MODE '.mat'])
     
@@ -32,12 +32,8 @@ Simulation.Phase = CONSTANTS.PHASES.GENERATOR;
 for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
     curBinSize = Simulation.RATE_BIN_SIZES(iBinSize);
     
-    title = sprintf('Generator (%s), Bin size: %.2f', ...
-        MODE, curBinSize);
-    
-    h = figure(iBinSize);
-    h.Name = title;
-    
+    figure( 'Name', sprintf('Generator (%s), Bin size: %.2f', ...
+        MODE, curBinSize));
     
     for iNeuron=1:NEURONS
         subplot(2,2,iNeuron);
@@ -101,13 +97,6 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
         
         Simulation.Neuron{iNeuron} = curNeuron;    
     end %for iNeuron
-    
-    CreateTitleForSubplots(['\bf ' title]);
-    
-    saveas(h, ['Generator_' MODE '_BinSize_' ...
-        sprintf('%d', floor(curBinSize)) ...
-        '_UsingSTA_' num2str(Simulation.UsingSTA)], 'png');
-    
 end %for iBinSize
 
 switch MODE

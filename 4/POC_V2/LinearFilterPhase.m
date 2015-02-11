@@ -3,7 +3,7 @@ clearvars -except Sim_Rep Sim_NonRep;
 ConstantsHeader();
 
 %choose Rep or NonRep
-MODE = 'Rep';
+MODE = 'NonRep';
 
 load(['AfterSTA_' MODE '.mat'])
     
@@ -42,9 +42,6 @@ SECONDS_OF_RATE_TO_DISPLAY = 10;
 Simulation.Phase = CONSTANTS.PHASES.LINEARFILTER;
 Simulation.STIMS_TO_THROW_AFTER_CONV = STIMS_TO_THROW_AFTER_CONV;
 Simulation.SECONDS_OF_RATE_TO_DISPLAY = SECONDS_OF_RATE_TO_DISPLAY;
-
-%Determines whether to use STA or STC filters
-Simulation.UsingSTA = 0;
         
 %% apply a linear filter of STA
 for iNeuron=1:NEURONS
@@ -55,19 +52,8 @@ for iNeuron=1:NEURONS
     curNeuron.Data = Simulation.Neuron{iNeuron}.RawData;
     curNeuron.Data(:, 4) = NaN(length(curNeuron.Data), 1);
 
-  
-    
-    if (Simulation.UsingSTA)
-        %Filter = curNeuron.STA;
-        %IMPORTANT: apply the non-rep STA
-        Filter = Sim_NonRep.Neuron{iNeuron}.STA;
-    else
-        
-        %look for the most variance Ev
-        [~,idx] = max(Sim_NonRep.Neuron{iNeuron}.EigenValues);
-        
-        Filter = Sim_NonRep.Neuron{iNeuron}.EigenVectors(:, idx)';
-    end
+    STA = curNeuron.STA;
+
     times = curNeuron.RawData(:,1);
     stimValues = curNeuron.RawData(:,2);
     
@@ -90,15 +76,15 @@ for iNeuron=1:NEURONS
         stimValuesOnWindow = curNeuron.RawData(filter, 2);
                 
         %{ 
-        linear filter the stimVals by the filter
-        we flip the Filter so the convolution will be act as moving window
+        linear filter the stimVals by the STA filter
+        we flip the STA so the convolution will be act as moving window
         
         see http://en.wikipedia.org/wiki/Cross-correlation
         %}
-        stimsAfterLinearFilter = conv(stimValuesOnWindow, flipud(Filter'), 'valid');
+        stimsAfterLinearFilter = conv(stimValuesOnWindow, flipud(STA'), 'valid');
 
         %added NaNs to 0-padded convolved values, see conv doc for more info;
-        %FUTURE: we might have problems here with different sizes of Filter
+        %FUTURE: we might have problems here with different sizes of STA
         stimsAfterLinearFilter = padarray(stimsAfterLinearFilter,...
             [STIMS_TO_THROW_AFTER_CONV-1 0], NaN, 'pre');
         stimsAfterLinearFilter = padarray(stimsAfterLinearFilter,...
