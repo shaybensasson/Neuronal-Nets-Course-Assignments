@@ -32,12 +32,11 @@ Simulation.Phase = CONSTANTS.PHASES.GENERATOR;
 for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
     curBinSize = Simulation.RATE_BIN_SIZES(iBinSize);
     
-    title = sprintf('Generator (%s), Bin size: %.2f', ...
-        MODE, curBinSize);
+    title = sprintf('Generator (%s), Bin size: %.2f, Using %s Filter', ...
+        MODE, curBinSize, iif(Simulation.UsingSTA,'STA','STC'));
     
-    h = figure(iBinSize);
-    h.Name = title;
-    
+    hf = figure(iBinSize);
+    hf.Name = title;
     
     for iNeuron=1:NEURONS
         subplot(2,2,iNeuron);
@@ -72,17 +71,20 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
         funcYMeans = accumarray(binIndex, YVals, [length(bins) 1], @mean, NaN);
 
         %remove empty/'zero' intesity buckets
-        m = [funcXData funcYMeans];
+        m = [funcXData funcYMeans bincounts];
         m = m(~isnan(m(:,2)),:);
         funcXData = m(:,1);
         funcYMeans = m(:,2);
-
+        bincounts = m(:,3);
+        
+        
         %create the 'function' using Interpolant Linear Fit
-        [fitresult, gof] = createFit(funcXData,funcYMeans,iNeuron,MODE);
+        [fitresult, gof] = createFit(funcXData,funcYMeans,bincounts,iNeuron,MODE);
         curNeuron.Rate{iBinSize}.Generator = fitresult;
                 
-        NORMALIZE = 1; NORMALIZE_BY_MAX=1;
+        
         %% apply the generator
+        NORMALIZE = 1; NORMALIZE_BY_MAX=1;
         stimsAfterGenerator = normalize( ...
             fitresult(stimsAfterLinearFilter), ...
             NORMALIZE, NORMALIZE_BY_MAX);
@@ -104,7 +106,11 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
     
     CreateTitleForSubplots(['\bf ' title]);
     
-    saveas(h, ['Generator_' MODE '_BinSize_' ...
+    r = 150; %pixels pre inch
+    set(hf, 'PaperUnits', 'inches');
+    set(hf, 'PaperPosition', [0 0 2880 1620]/r); %x_width=10cm y_width=15cm
+    
+    saveas(hf, ['Generator_' MODE '_BinSize_' ...
         sprintf('%d', floor(curBinSize)) ...
         '_UsingSTA_' num2str(Simulation.UsingSTA)], 'png');
     

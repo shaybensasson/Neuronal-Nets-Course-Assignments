@@ -1,10 +1,21 @@
-map = [43, 87, 154; ... %blue
-    32, 162, 58; ... %green
-    0, 0, 0; ... % black
-    207, 210, 146; ... %yello for stims
-    205, 151, 151]; %red for aps
+f1 = Sim_NonRep.Neuron{iNeuron}.STA
+f1 = normalize(f1, 1, 1);
 
-map = map./255;
+f2 = eVects(:, idx)';
+f2 = normalize(f2, 1, 1);
 
-h = plot(1:10,1:10);
-h.Color = map(5,:);
+x = linspace(-Simulation.STA_WINDOW_IN_MS, 0, length(f1));
+plot(x, f1);
+
+hold on
+
+plot(x, f2);
+
+%ylim([minSTAValue-0.1 maxSTAValue+0.1]);
+
+
+title(sprintf('Neuron #%d', iNeuron));
+xlabel('Time (ms)');
+ylabel('Light levels');
+
+CreateTitleForSubplots('\bf STA');

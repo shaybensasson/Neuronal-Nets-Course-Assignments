@@ -26,6 +26,17 @@ end
 
 NEURONS = length(Simulation.Neuron);
 
+LENGTH_OF_PLOT = 11; %length in seconds
+
+COLOR_MAP = [43, 87, 154; ... %blue: 1
+            32, 162, 58; ... %green: 2
+            0, 0, 0; ... % black: 3
+            175, 185, 22; ... %yello for stims: 4
+            201, 67, 67]; %red for aps: 5
+
+COLOR_MAP = COLOR_MAP./255;
+
+
 %iBinSize = 4;
 %iNeuron = 2;
 
@@ -33,8 +44,8 @@ NEURONS = length(Simulation.Neuron);
 for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
     curBinSize = Simulation.RATE_BIN_SIZES(iBinSize);
     
-    title = sprintf('After Generator (%s), Bin size: %.2f', ...
-        MODE, curBinSize);
+    title = sprintf('R vs R_{Est} (%s), Bin size: %.2f, Using %s Filter', ...
+        MODE, curBinSize, iif(Simulation.UsingSTA,'STA','STC'));
     
     hf = figure(iBinSize);
     hf.Name = title;
@@ -59,17 +70,9 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
 
         %% plot
 
-        map = [43, 87, 154; ... %blue: 1
-            32, 162, 58; ... %green: 2
-            0, 0, 0; ... % black: 3
-            175, 185, 22; ... %yello for stims: 4
-            201, 67, 67]; %red for aps: 5
-
-        map = map./255;
-
-        TIME_TO_PLOT = 10*Simulation.TICKS_IN_SECOND; %~ num of records
-        START_FROM_INDEX = 1000;
-        xStimFilter = times>=times(START_FROM_INDEX) & times<=times(START_FROM_INDEX)+TIME_TO_PLOT;
+        LENGTH_OF_PLOT_IN_TICKS = LENGTH_OF_PLOT*Simulation.TICKS_IN_SECOND; %~ num of records
+        START_FROM_INDEX = 1000; %~1000*STIMULI_EACH_TICKS (from onset)
+        xStimFilter = times>=times(START_FROM_INDEX) & times<=times(START_FROM_INDEX)+LENGTH_OF_PLOT_IN_TICKS;
         timesToPlot = times(xStimFilter);
         dataToPlot = [times stimValues aps];
         dataToPlot = dataToPlot(xStimFilter, :);
@@ -77,7 +80,7 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
         aps = dataToPlot(:,3);
 
         xRateFilter = rateData(:,1)>=times(START_FROM_INDEX) & ...
-            rateData(:,1)<=times(START_FROM_INDEX)+TIME_TO_PLOT;
+            rateData(:,1)<=times(START_FROM_INDEX)+LENGTH_OF_PLOT_IN_TICKS;
         binnedToPlot = rateData(xRateFilter, :);
         
         stackedToPlot = [rateData(:,1) psth stimsAfterLinearFilter stimsAfterGenerator];
@@ -88,7 +91,7 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
         stimsAfterLinearFilter = stackedToPlot(:,3);
         stimsAfterGenerator = stackedToPlot(:,4);
 
-        %TODO: do we need this?
+        %FUTURE: do we need this?
         %rate(isnan(rate(:, 2)), :) = [];
 
 
@@ -104,43 +107,55 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
         %hold(AX(1));
         set(AX,'NextPlot','add')
         H1.LineStyle = 'none'; H1.Marker = '.'; 
-        H1.Color = map(4, :);  
+        H1.Color = COLOR_MAP(4, :);  
         
         AX(1).YLim = [min(stimValues) max(stimValues)];
-        AX(1).YColor = map(4, :);
+        AX(1).YColor = COLOR_MAP(4, :);
+        %AX(1).YTick = linspace(min(stimValues), max(stimValues), 5);
 
         H2.LineStyle = 'none'; H2.Marker = 'o';
-        H2.Color = map(5, :);
+        H2.Color = COLOR_MAP(5, :);
         
         AX(2).YLim = [minValue maxValue];
-        AX(2).YColor = map(1, :);
+        AX(2).YColor = COLOR_MAP(1, :);
+        %AX(2).YTick = linspace(minValue, maxValue, 5);
+        
 
         %filter relevant data to plot
         AX(1).XLim = [timesToPlot(1) timesToPlot(end)];
         AX(2).XLim = [timesToPlot(1) timesToPlot(end)];
-
-
+        
+        %{
+        ax = gca;
+        ticks = ax.XTick;
+        
+        set(gca,'XTickLabel',sprintf('%.1f\n',...
+            ticks ...
+                /Simulation.TICKS_IN_SECOND));
+        %}
+        
         %psth
         h = plot(AX(2), stackedToPlot(:,1), psth);
-        h.Color = map(1, :);
+        h.Color = COLOR_MAP(1, :);
         h.Color(4) = 0.60; % 30% transparent 
         h.LineWidth = 1.5;
         %K filter
         h = plot(AX(2), stackedToPlot(:,1), stimsAfterLinearFilter);
-        h.Color = map(3, :);
-        h.Color(4) = 0.35;  % 65% transparent
+        h.Color = COLOR_MAP(3, :);
+        h.Color(4) = 0.45;  % 55% transparent
         h.LineStyle = '--';
 
         %G filter
         h = plot(AX(2), stackedToPlot(:,1), stimsAfterGenerator);
-        h.Color = map(2, :);
+        h.Color = COLOR_MAP(2, :);
         h.Color(4) = 0.70;  % 30% transparent
         h.LineWidth = 1.5;
 
         legend('Raw stim values', ...
                 'Aps', ...
                 sprintf('PSTH (%.2f ms)', curBinSize/10), ...
-                'After linear filter', ...
+                sprintf('After %s linear filter', ...
+                    iif(Simulation.UsingSTA,'STA','STC')), ...
                 'After Generator');
         
         %% fit measurement
@@ -148,8 +163,8 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
         SSEg = curNeuron.Rate{iBinSize}.SSEg; %lower is less err
                 
         %the similarity between two signals, we only need zero lag
-        Cork = xcorr(psth,stimsAfterLinearFilter,0,'coeff'); % 1 if are equal
-        Corg = xcorr(psth,stimsAfterGenerator,0,'coeff'); % 1 if are equal
+        Cork = abs(xcorr(psth,stimsAfterLinearFilter,0,'coeff')); % 1 if are equal
+        Corg = abs(xcorr(psth,stimsAfterGenerator,0,'coeff')); % 1 if are equal
 
         yText = minValue-(minValue/10);
         
@@ -162,7 +177,7 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
                 iif(Simulation.UsingSTA,'STA','STC'), ...
                 SSEk, SSEg, Cork, Corg), ...
         'HorizontalAlignment' ,'left','VerticalAlignment', 'bottom');
-    
+        
         
     end %iNeuron
     
@@ -175,6 +190,7 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
     saveas(iBinSize, ['RvsRest_' MODE '_BinSize_' ...
         sprintf('%d', floor(curBinSize)) ...
         '_UsingSTA_' num2str(Simulation.UsingSTA)], 'png');
+    
  end %iBinSize
  
     

@@ -1,4 +1,4 @@
-function [fitresult, gof] = createFit(funcXData, funcYMeans, ...
+function [fitresult, gof] = createFit(funcXData, funcYMeans, bincounts, ...
     iNeuron, MODE)
 %CREATEFIT(FUNCXDATA,FUNCYMEANS)
 %  Create a fit.
@@ -26,6 +26,7 @@ ft = 'linearinterp';
 
 % Plot fit with data.
 h = plot( fitresult, xData, yData );
+
 legend( h, 'After Linear Filter vs. Rate', ...
     sprintf('Interpolant Linear Fit (%s)', MODE), 'Location', 'NorthEast');
 
@@ -33,7 +34,34 @@ legend( h, 'After Linear Filter vs. Rate', ...
 xlabel( 'After Linear Filter' );
 ylabel( 'Rate' );
 
+%add bin counts axis
 title(sprintf('Neuron #%d', iNeuron));
+
+ax1 = gca; % current axes
+ax1_pos = ax1.Position; % position of first axes
+
+
+ax2 = axes('Position',ax1_pos,...
+    'XAxisLocation','top',...
+    'YAxisLocation','right',...
+    'Visible', 'off', ...
+    'Color','none');
+%ax2.XColor = [0 0 0 0]; %transparent
+
+ylabel(ax2, 'Bin counts');
+ylim(ax2, [-100, 2500]);
+
+hl = line(xData,bincounts,'Parent',ax2,'Color','k');
+hl.LineStyle = '--';
+hl.Color(4) = 0.5;
+
+%[~, idx] = max(bincounts);
+
+%ht = text(xData(idx)-0.3, bincounts(idx), '\bf Bin count');
+
+%ht.Color = [105 105 105] / 150; %dim gray
+
+
 grid on
 
 

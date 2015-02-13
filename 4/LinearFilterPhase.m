@@ -4,11 +4,13 @@ ConstantsHeader();
 
 %choose Rep or NonRep
 MODE = 'Rep';
+UsingSTA = 0;
 
 load(['AfterSTA_' MODE '.mat'])
     
 switch MODE
     case 'Rep'
+        load('AfterSTA_NonRep.mat') %we're using its STA
         Simulation = Sim_Rep;
         clearvars Sim_Rep;
         StimTime = Simulation.StimTimeRep;
@@ -44,7 +46,7 @@ Simulation.STIMS_TO_THROW_AFTER_CONV = STIMS_TO_THROW_AFTER_CONV;
 Simulation.SECONDS_OF_RATE_TO_DISPLAY = SECONDS_OF_RATE_TO_DISPLAY;
 
 %Determines whether to use STA or STC filters
-Simulation.UsingSTA = 0;
+Simulation.UsingSTA = UsingSTA;
         
 %% apply a linear filter of STA
 for iNeuron=1:NEURONS
@@ -54,20 +56,30 @@ for iNeuron=1:NEURONS
     curNeuron = Simulation.Neuron{iNeuron};
     curNeuron.Data = Simulation.Neuron{iNeuron}.RawData;
     curNeuron.Data(:, 4) = NaN(length(curNeuron.Data), 1);
-
-  
     
+    %% apply filter
     if (Simulation.UsingSTA)
-        %Filter = curNeuron.STA;
-        %IMPORTANT: apply the non-rep STA
-        Filter = Sim_NonRep.Neuron{iNeuron}.STA;
+        switch MODE
+            case 'Rep'
+                %IMPORTANT: apply the non-rep STA
+                Filter = Sim_NonRep.Neuron{iNeuron}.STA;
+            case 'NonRep'
+                Filter = Simulation.Neuron{iNeuron}.STA;
+        end
     else
+        switch MODE
+            case 'Rep'
+                %IMPORTANT: apply the non-rep STC
+                Filter = Sim_NonRep.Neuron{iNeuron}.STCFilter;
+            case 'NonRep'
+                Filter = Simulation.Neuron{iNeuron}.STCFilter;
+        end
         
-        %look for the most variance Ev
-        [~,idx] = max(Sim_NonRep.Neuron{iNeuron}.EigenValues);
-        
-        Filter = Sim_NonRep.Neuron{iNeuron}.EigenVectors(:, idx)';
+        %we flip the filter so it'd be aligned to STA
+        %originally the STA and the STC filter are mirrored
+        Filter = fliplr(Filter);
     end
+    
     times = curNeuron.RawData(:,1);
     stimValues = curNeuron.RawData(:,2);
     
@@ -195,6 +207,5 @@ if (SAVE_MAT_FILE)
     fprintf('Saving simulation output ...\n');
     save(['AfterLinearFilter_' MODE '.mat'], ['Sim_' MODE]);
 end
-        
-beep('on');
+
 

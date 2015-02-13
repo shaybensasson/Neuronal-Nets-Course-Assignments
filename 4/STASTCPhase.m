@@ -51,6 +51,7 @@ SAFETY_WINDOW_TO_THE_PAST_IN_TICKS = SAFETY_WINDOW_TO_THE_PAST_IN_STIMS * ...
             Simulation.STIMULUS_EACH_TICKS;
 
 minSTAValue = inf; maxSTAValue = -inf;
+minSTCFilterValue = inf; maxSTCFilterValue = -inf;
 for iNeuron=1:NEURONS
    
     fprintf('[N:#%i] ...\n', iNeuron);
@@ -194,10 +195,22 @@ for iNeuron=1:NEURONS
     so that A*V = V*D.
     %}
     
-    evals = diag(D); %just as SVD, these are variances
-    Simulation.Neuron{iNeuron}.EigenValues = evals;
-    evects = V; 
-    Simulation.Neuron{iNeuron}.EigenVectors = evects;
+    eVals = diag(D); %just as SVD, these are variances
+    Simulation.Neuron{iNeuron}.EigenValues = eVals;
+    eVects = V; 
+    Simulation.Neuron{iNeuron}.EigenVectors = eVects;
+    
+    %look for the most variance Ev
+    [~,idx] = max(eVals);
+
+    Filter = eVects(:, idx)';
+    Filter = normalize(Filter, 1, 1);
+    
+    Simulation.Neuron{iNeuron}.STCFilter = Filter;
+    
+    %use for ploting
+    minSTCFilterValue = min(minSTCFilterValue, min(Filter));
+    maxSTCFilterValue = max(maxSTCFilterValue, max(Filter));
 end %iNeuron
 
 %% plot STA
@@ -231,11 +244,11 @@ h = figure(2);
 
 for iNeuron=1:NEURONS
     subplot(2,2, iNeuron);
-    evals = Simulation.Neuron{iNeuron}.EigenValues;
+    eVects = Simulation.Neuron{iNeuron}.EigenValues;
     
-    plot(evals, 'o'); % examine eigenvalues
-    text((1:length(evals))-0.25, evals+0.5,num2str(evals, '%.4f'), 'Rotation', 90);
-    ylim([min(evals) max(evals)+2]);
+    plot(eVects, 'o'); % examine eigenvalues
+    text((1:length(eVects))-0.25, eVects+0.5,num2str(eVects, '%.4f'), 'Rotation', 90);
+    ylim([min(eVects) max(eVects)+2]);
     
     
     title(sprintf('Neuron #%d', iNeuron));
@@ -245,8 +258,32 @@ for iNeuron=1:NEURONS
     CreateTitleForSubplots('\bf Eigenvalues (of STC)');
 end
 
-saveas(h, ['STC_' MODE], 'png');
+saveas(h, ['EigenValues_' MODE], 'png');
 
+%% plot STC filter
+h = figure(3);
+
+for iNeuron=1:NEURONS
+    subplot(2,2, iNeuron);
+    Filter = Simulation.Neuron{iNeuron}.STCFilter;
+    
+    %NOTE: we flipped STA before plotting, here we do not
+    
+    
+    x = linspace(-STA_WINDOW_IN_MS, 0, length(Filter));
+    plot(x, Filter, 'r');
+    ylim([minSTCFilterValue-0.1 maxSTCFilterValue+0.1]);
+   
+    title(sprintf('Neuron #%d', iNeuron));
+    xlabel('Time (ms)');
+    ylabel('Light levels');
+    
+    CreateTitleForSubplots('\bf STC Filter');
+end
+
+saveas(h, ['STCFilter_' MODE], 'png');
+
+%% save
 switch MODE
     case 'Rep'
         Sim_Rep = Simulation;
@@ -258,7 +295,7 @@ switch MODE
         throw(ME)
 end
 
-%% save
+
 if (SAVE_MAT_FILE)
     fprintf('Saving simulation output ...\n');
     save(['AfterSTA_' MODE '.mat'], ['Sim_' MODE]);
