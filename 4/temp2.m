@@ -1,7 +1,8 @@
-f1 = Sim_NonRep.Neuron{iNeuron}.STA
+figure;
+f1 = STA;
 f1 = normalize(f1, 1, 1);
 
-f2 = eVects(:, idx)';
+f2 = Filter;
 f2 = normalize(f2, 1, 1);
 
 x = linspace(-Simulation.STA_WINDOW_IN_MS, 0, length(f1));

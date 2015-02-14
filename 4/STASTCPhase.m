@@ -3,7 +3,7 @@ clearvars -except Sim_Rep Sim_NonRep;
 ConstantsHeader();
 
 %choose Rep or NonRep
-MODE = 'Rep';
+MODE = 'NonRep';
 
 load(['FiringRate_' MODE '.mat'])
     
@@ -137,7 +137,11 @@ for iNeuron=1:NEURONS
     
     %% STA creation
     %binnify the STA
-    %NOTE: we can choose even smaller binSize (ex. 100 is still OK, yet noisier)
+    %{
+        NOTE: we can choose even smaller binSize (ex. 100 is still OK, yet noisier)
+            but than the STC construction will cause problems,
+            because it has STIMS_IN_STA_WINDOW columns
+    %}
     BIN_SIZE = Simulation.PSTH_BIN_SIZES(1); %sampFreq
     bins = 1:BIN_SIZE:STA_WINDOW_IN_TICKS;
     [bincounts,binIndex] = histc(1:STA_WINDOW_IN_TICKS,bins);
