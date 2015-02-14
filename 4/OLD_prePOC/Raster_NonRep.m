@@ -25,7 +25,7 @@ for iNeuron=1:NEURONS
     ylabel('# of Iteration')
     xlabel('Time from stimulus onset (s)')
     axis([0 TICKS_IN_WINDOW 0 ITERATIONS])
-    set(gca,'XTickLabel',sprintf('%1.1f|',0:10:SECONDS_IN_WINDOW));
+    set(gca,'XTickLabel',sprintf('%1.1f\n',0:10:SECONDS_IN_WINDOW));
     
     for iIteration=2:ITERATIONS
         %Normalize stim time to start from 1
