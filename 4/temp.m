@@ -1,50 +1,37 @@
-x = funcXData;
-y1 = funcYMeans;
-y2 = bincounts;
-
 %{
-x1 = 0:0.1:40;
-y1 = 4.*cos(x1)./(x1+2);
-x2 = 1:0.2:20;
-y2 = x2.^2./x2.^3;
+res = repmat(STA', 1, ceil(Simulation.STIMULUS_EACH_TICKS));
+res = res'
+res = res(:)';
 %}
 
-figure
-%line(x,y1,'Color','r')
-h = plot( fitresult, x, y1 );
-
 %{
+%take STA_WINDOW_IN_TICKS before AP
+windowOnSet = timeOfAP-1 -STA_WINDOW_IN_TICKS;
+%apWindowStims(:,1) = apWindowStims(:,1)-windowOnSet;
 
-ax1 = gca; % current axes
+%because we took some safety stims, let's take the last relevant ones
+apWindowStims = apWindowStims(find(apWindowStims(:,1),Simulation.STIMS_IN_STA_WINDOW+1,'last'), :);
 
-ax1_pos = ax1.Position; % position of first axes
-ax2 = axes('Position',ax1_pos,...
-    'XAxisLocation','bottom',...
-    'YAxisLocation','right',...
-    'Color','none');
-ax2.YColor = [100 100 100] / 150;
-ylabel(ax2, 'Bin counts');
+%let's smoothen the STA from Simulation.STIMS_IN_STA_WINDOW+1 into STA_WINDOW_IN_TICKS
+stims = apWindowStims(:,2);
+stims = repmat(stims, 1, floor(Simulation.STIMULUS_EACH_TICKS));
+stims = stims';
+stims = stims(:)';
+start = length(stims)-STA_WINDOW_IN_TICKS;
+stims = stims(start:start+STA_WINDOW_IN_TICKS-1);
+%}
+%{
+stimsOnSet = timeOfAP-STA_WINDOW_IN_TICKS-ceil(Simulation.STIMULUS_EACH_TICKS)
 
-hl = line(x,y2,'Parent',ax2,'Color','k');
-hl.LineStyle = '--';
-hl.Color(4) = 0.5;
-
-grid on;
+stims = apWindowStims(apWindowStims(:,1)>=stimsOnSet, 2);
+res = repmat(stims, 1, ceil(Simulation.STIMULUS_EACH_TICKS));
+res = res';
+res = res(:)';
+start = length(res)-STA_WINDOW_IN_TICKS;
+res = res(start:start+STA_WINDOW_IN_TICKS-1);
 %}
 
-ax1 = gca; % current axes
-ax1_pos = ax1.Position; % position of first axes
-
-ax2 = axes('Position',ax1_pos,...
-    'XAxisLocation','bottom',...
-    'YAxisLocation','right',...
-    'Color','none');
-ax2.XColor = [0 0 0 0]; %transparent
-ax2.YColor = [100 100 100] / 150;
-ylabel(ax2, 'Bin counts');
-
-hl = line(x,y2,'Parent',ax2,'Color','k');
-hl.LineStyle = '--';
-hl.Color(4) = 0.5;
-
-grid on
+%stimValues = repmat(stimValues,1,floor(STIMULUS_EACH_TICKS));
+stimValues = repmat(stimValues,1,2);
+stimValues = stimValues';
+stimValues = stimValues(:);
