@@ -5,17 +5,20 @@ ConstantsHeader();
 %choose Rep or NonRep
 MODE = 'NonRep';
 
-load(['FiringRate_' MODE '.mat'])
+%load(['FiringRate_' MODE '.mat'])
+load(['MatFiles\PreProcessed_' MODE '.mat'])
     
 switch MODE
     case 'Rep'
         Simulation = Sim_Rep;
         clearvars Sim_Rep;
         StimTime = Simulation.StimTimeRep;
+        
     case 'NonRep'
         Simulation = Sim_NonRep;
         clearvars Sim_NonRep;
         StimTime = Simulation.StimTimeNonRep;
+        
     otherwise
         ME = MException('noSuchMODE', ...
             'no such MODE is found!');
@@ -45,122 +48,69 @@ Simulation.PSTH_BIN_SIZES = [Simulation.STIMULUS_EACH_TICKS; ... %sampling freq
              Simulation.STIMULUS_EACH_TICKS*10; ... ~330 msec
              Simulation.STIMULUS_EACH_TICKS*15; ... ~500 msec
              Simulation.STIMULUS_EACH_TICKS*30]; %1000 msec = 1 sec 
-
-SAFETY_WINDOW_TO_THE_PAST_IN_STIMS = STIMS_IN_STA_WINDOW*3;
-SAFETY_WINDOW_TO_THE_PAST_IN_TICKS = SAFETY_WINDOW_TO_THE_PAST_IN_STIMS * ...
-            Simulation.STIMULUS_EACH_TICKS;
+%}
 
 minSTAValue = inf; maxSTAValue = -inf;
 minSTCFilterValue = inf; maxSTCFilterValue = -inf;
+        
 for iNeuron=1:NEURONS
    
     fprintf('[N:#%i] ...\n', iNeuron);
     
-    data = Simulation.Neuron{iNeuron}.RawData;
-    %get rid of data that has less history than STA safety window
-    idxFirstAP = find(data(:,3)==1, 100, 'first');
-    idxFirstAP(idxFirstAP<=SAFETY_WINDOW_TO_THE_PAST_IN_STIMS) = [];
-    idxFirstAP = idxFirstAP(1);
-    
-    idxLastAP = find(data(:,3)==1, 100, 'last');
-    to = idxLastAP(end)-SAFETY_WINDOW_TO_THE_PAST_IN_STIMS;
-    idxLastAP(idxLastAP>to) = [];
-    idxLastAP = idxLastAP(end);
-    
-    %mean over NaNs
-    rawStimuliMean = mean(data(~isnan(data(:,2)),2));
-        
-    %adding index column
-    %discard warning we have 4 neurons
-    data = [data (1:length(data))'];
-    
-    %get only AP times (from the first AP that has safety window to the
-    %past)
-    apsTimes = data(idxFirstAP:idxLastAP,:);
-    apsTimes = apsTimes(apsTimes(:,3)==1, [1 4]);
-    
-    NUM_OF_APS = length(apsTimes);
-    
     %accumulate all Spike Triggered stimuli for every spike
-    accSTAStims = NaN(NUM_OF_APS, STIMS_IN_STA_WINDOW);
-    accSTAWindow = zeros(1,STA_WINDOW_IN_TICKS+SAFETY_WINDOW_TO_THE_PAST_IN_TICKS);
-    accSTAWindowCounters = zeros(1,STA_WINDOW_IN_TICKS+SAFETY_WINDOW_TO_THE_PAST_IN_TICKS);
+    STAStims = NaN(length(Simulation.TT(iNeuron).sp), STA_WINDOW_IN_TICKS);
     
-    %{
-	NOTE: checking must be done only for the non-rep case,
-			the rep window checking and validation is not mandatory
-	%}
-	idxStimuliWindow = 1;
+    STAPerTrail = zeros(Simulation.ITERATIONS,STA_WINDOW_IN_TICKS);
+    countTrailAPs = 0;
+    STA = zeros(1,STA_WINDOW_IN_TICKS);
     
-    for iAP=1:NUM_OF_APS %for every AP
-        
-        timeOfAP = apsTimes(iAP,1);
-        timeOfStimuliWindow = StimTime(idxStimuliWindow);
-        timeOfStimuliNextWindow = StimTime(idxStimuliWindow+1);
-        
-        if (timeOfAP>=timeOfStimuliNextWindow) %ap after stimuli window ends
-            %go to next window
-            idxStimuliWindow = idxStimuliWindow+1;
+    %the total APs =
+    % (NUM_OF_APS - the ones we discarded because they're on trail edges)
+    totalAPsCounted = 0;
+           
+    for iIteration=1:Simulation.ITERATIONS
             
-            timeOfStimuliWindow = StimTime(idxStimuliWindow);
-            timeOfStimuliNextWindow = StimTime(idxStimuliWindow+1);
-        end
-                
-        %get Spike Triggered stims
-        idxOfAP = apsTimes(iAP,2);
-        apWindowStims = data(idxOfAP-SAFETY_WINDOW_TO_THE_PAST_IN_STIMS:idxOfAP-1, [1 2]);
-        apWindowStims(isnan(apWindowStims(:,2)), :)=[];
-        apWindowStims = apWindowStims(find(apWindowStims(:,2), STIMS_IN_STA_WINDOW, 'last'),:);
+        data = Simulation.Neuron{iNeuron}.Iteration{iIteration};
         
-        if (apWindowStims(1,1)<timeOfStimuliWindow) %discard stims before stimuli window starts
-            continue;
-        end
+        %start from AP that has enough history
+        idxFirstAP = find(data(STA_WINDOW_IN_TICKS+1:end,3)==1, 1, 'first') + STA_WINDOW_IN_TICKS;
         
-        accSTAStims(iAP,:) = apWindowStims(:,2)';
+        %adding index column
+        %discard warning we have 4 neurons
+        data = [data (1:length(data))'];
+
+        %get only AP times 
+        apsTimes = data(idxFirstAP:end,:);
+        apsTimes = apsTimes(apsTimes(:,3)==1, [1 4]);
+
+        NUM_OF_APS = length(apsTimes);
         
-        apWindowStims(:,1) = timeOfAP - apWindowStims(:,1);
-        accSTAWindow(apWindowStims(:,1)) = accSTAWindow(apWindowStims(:,1)) + apWindowStims(:,2)';
-        accSTAWindowCounters(apWindowStims(:,1)) = ...
-            accSTAWindowCounters(apWindowStims(:,1)) + logical(apWindowStims(:,1))';
-                
-    end
-    
-    %clear nans
-    accSTAStims(all(isnan(accSTAStims),2),:)=[];
-    
-    accSTAWindow = accSTAWindow(1:STA_WINDOW_IN_TICKS);
-    accSTAWindowCounters = accSTAWindowCounters(1:STA_WINDOW_IN_TICKS);
-    
-    accSTAWindow(accSTAWindowCounters==0) = NaN;
-    accSTAWindowCounters(accSTAWindowCounters==0) = NaN;
-    accSTAWindow = accSTAWindow./accSTAWindowCounters;
-    
-    %% STA creation
-    %binnify the STA
-    %{
-        NOTE: we can choose even smaller binSize (ex. 100 is still OK, yet noisier)
-            but than the STC construction will cause problems,
-            because it has STIMS_IN_STA_WINDOW columns
-    %}
-    BIN_SIZE = Simulation.PSTH_BIN_SIZES(1); %sampFreq
-    bins = 1:BIN_SIZE:STA_WINDOW_IN_TICKS;
-    [bincounts,binIndex] = histc(1:STA_WINDOW_IN_TICKS,bins);
+        for iAP=1:NUM_OF_APS %for every AP
 
-    %insert any unbinned data to last bin
-    unbinnedIndex = max(binIndex);
-    %last bin was not created
-    if (~bincounts(end))
-        unbinnedIndex = unbinnedIndex+1;
-    end
-    binIndex(binIndex==0)=unbinnedIndex;
+            timeOfAP = apsTimes(iAP,1);
 
-    %group by times and mean stim vals
-    grp_mean = accumarray(binIndex', accSTAWindow', [length(bins) 1], @nanmean, NaN);
+            %get Spike Triggered stims
+            idxOfAP = apsTimes(iAP,2);
 
-    STA = grp_mean';
+            apStims = data(idxOfAP-STA_WINDOW_IN_TICKS:idxOfAP-1, [1 2]);
+
+            stims = apStims(:,2)';
+
+            totalAPsCounted = totalAPsCounted+1;
+            STAStims(totalAPsCounted,:) = stims;
+
+            STAPerTrail(iIteration,:) =  ...
+                STAPerTrail(iIteration,:) + stims;
+            countTrailAPs = countTrailAPs+1;
+            
+        end %iAP
+        
+        STA = STA + STAPerTrail(iIteration,:)./countTrailAPs;
     
-    %Normalize the raw stims by the overall mean
-    STA = STA - rawStimuliMean;
+    end %iIteration
+    
+    %get the data physically used
+    STAStims = STAStims(1:totalAPsCounted, :);
     
     %{
     normalize: 
@@ -173,12 +123,11 @@ for iNeuron=1:NEURONS
     minSTAValue = min(minSTAValue, min(STA));
     maxSTAValue = max(maxSTAValue, max(STA));
     
+    
+    Simulation.Neuron{iNeuron}.STA = STA;
+    
     %% STC calculation
-    
-    %the total APs =
-    % (NUM_OF_APS - the ones we discarded because they're on window edges)
-    totalAPs = length(accSTAStims);
-    
+        
     %FUTURE compare vs pillow: 
     %see Schwartz et al.
     %stackSTA = repmat(STA,totalAPs,1);
@@ -187,10 +136,7 @@ for iNeuron=1:NEURONS
     %see
     %http://pillowlab.cps.utexas.edu/teaching/CompNeuro10/slides/slides07_STC_LNPmodel.pdf,
     %slide 43
-    STC = accSTAStims' * accSTAStims ./(totalAPs);
-    
-    Simulation.Neuron{iNeuron}.STA = STA;
-    Simulation.Neuron{iNeuron}.STC = STC;
+    STC = STAStims' * STAStims ./(totalAPsCounted);
     
     [V,D] = eig(STC);
     %{ 
@@ -200,9 +146,7 @@ for iNeuron=1:NEURONS
     %}
     
     eVals = diag(D); %just as SVD, these are variances
-    Simulation.Neuron{iNeuron}.EigenValues = eVals;
     eVects = V; 
-    Simulation.Neuron{iNeuron}.EigenVectors = eVects;
     
     %look for the most variance Ev
     [~,idx] = max(eVals);
@@ -210,11 +154,13 @@ for iNeuron=1:NEURONS
     Filter = eVects(:, idx)';
     Filter = normalize(Filter, 1, 1);
     
-    Simulation.Neuron{iNeuron}.STCFilter = Filter;
-    
     %use for ploting
     minSTCFilterValue = min(minSTCFilterValue, min(Filter));
     maxSTCFilterValue = max(maxSTCFilterValue, max(Filter));
+    
+    Simulation.Neuron{iNeuron}.EigenValues = eVals;
+    Simulation.Neuron{iNeuron}.STCFilter = Filter;
+    
 end %iNeuron
 
 %% plot STA
@@ -224,12 +170,8 @@ for iNeuron=1:NEURONS
     subplot(2,2, iNeuron);
     STA = Simulation.Neuron{iNeuron}.STA;
     
-    %NOTE: we flip before plotting
-    STA = fliplr(STA);
-    
     x = linspace(-STA_WINDOW_IN_MS, 0, length(STA));
     plot(x, STA);
-    
     
     ylim([minSTAValue-0.1 maxSTAValue+0.1]);
     
@@ -248,11 +190,11 @@ h = figure(2);
 
 for iNeuron=1:NEURONS
     subplot(2,2, iNeuron);
-    eVects = Simulation.Neuron{iNeuron}.EigenValues;
+    eVals = Simulation.Neuron{iNeuron}.EigenValues;
     
-    plot(eVects, 'o'); % examine eigenvalues
-    text((1:length(eVects))-0.25, eVects+0.5,num2str(eVects, '%.4f'), 'Rotation', 90);
-    ylim([min(eVects) max(eVects)+2]);
+    plot(eVals, 'o'); % examine eigenvalues
+    
+    ylim([min(eVals) max(eVals)+2]);
     
     
     title(sprintf('Neuron #%d', iNeuron));
@@ -270,10 +212,7 @@ h = figure(3);
 for iNeuron=1:NEURONS
     subplot(2,2, iNeuron);
     Filter = Simulation.Neuron{iNeuron}.STCFilter;
-    
-    %NOTE: we flipped STA before plotting, here we do not
-    
-    
+            
     x = linspace(-STA_WINDOW_IN_MS, 0, length(Filter));
     plot(x, Filter, 'r');
     ylim([minSTCFilterValue-0.1 maxSTCFilterValue+0.1]);
@@ -302,8 +241,8 @@ end
 
 if (SAVE_MAT_FILE)
     fprintf('Saving simulation output ...\n');
-    save(['AfterSTA_' MODE '.mat'], ['Sim_' MODE]);
+    save(['MatFiles\AfterSTA_' MODE '.mat'], ['Sim_' MODE]);
 end
 
-%load gong 
-%sound(y,Fs)
+load gong 
+sound(y,Fs)

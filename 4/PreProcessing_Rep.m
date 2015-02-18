@@ -24,12 +24,15 @@ TICKS_TO_THROW = 30 * TICKS_IN_SECOND;
 
 NEURONS = length(TTRep);
 ITERATIONS = length(StimTimeRep); %NOTE: each ITERATION is a repetition
+ITERATIONS = ITERATIONS-1; %just for simplicity of loops later
 
 clear Simulation;
 Simulation.Mode = CONSTANTS.MODES.REP;
 Simulation.Phase = CONSTANTS.PHASES.PREPROCESSING;
 Simulation.Neuron = cell(1,length(TTRep));
 Simulation.StimTimeRep = StimTimeRep;
+Simulation.StimulusRep = StimulusRep;
+Simulation.TT = TTRep;
 Simulation.ITERATIONS = ITERATIONS;
 Simulation.SECONDS_IN_TRAIL = SECONDS_IN_TRAIL;
 Simulation.TICKS_IN_TRAIL = TICKS_IN_TRAIL;
@@ -44,11 +47,11 @@ for iNeuron = 1:length(TTNonRep)
     
     fprintf('[N:#%i] ...\n', iNeuron);
    
-    for iIteration = 2:ITERATIONS
+    for iIteration = 1:ITERATIONS
         %fprintf('[N:#%i] iter #%i/#%i ...\n', iNeuron, iIteration, ITERATIONS);
 
-        iEnd = iIteration;
-        iStart = iEnd-1; 
+        iStart = iIteration; 
+        iEnd = iIteration+1;
 
         %actual ticks in trail limited by TICKS_IN_TRAIL
         dataTicks = TICKS_IN_TRAIL;
@@ -57,16 +60,20 @@ for iNeuron = 1:length(TTNonRep)
         StimTimeRepNorm=StimTimeRep-StimTimeRep(iStart)+1;
         iteration.time= (StimTimeRepNorm(iStart):StimTimeRepNorm(iEnd)-1)'; %first 200 secs
         dataTicks = min(dataTicks,length(iteration.time)); 
-        iteration.time = iteration.time(1:dataTicks); %trim
 
         %% get stim values of the current rep trail        
         stimValues = StimulusRep(1:STIMULI_PER_TRAIL,:);
 
         %Smoothen stim values on dataTicks
-        %TODO: we might try with floor + 1
-        stimValues = repmat(stimValues,1,ceil(STIMULUS_EACH_TICKS));
+        stimValues = repmat(stimValues,1,floor(STIMULUS_EACH_TICKS));
         stimValues = stimValues';
         stimValues = stimValues(:);
+        
+        %because of flooring we might have less data
+        dataTicks = min(dataTicks,length(stimValues)); 
+        
+        %trim data collected so far
+        iteration.time = iteration.time(1:dataTicks);
         iteration.stimuli=stimValues(1:dataTicks);
 
         %% get aps of the current rep trail        
@@ -109,3 +116,6 @@ if (SAVE_MAT_FILE)
     fprintf('Saving simulation output ...\n');
     save('MatFiles\PreProcessed_Rep.mat', 'Sim_Rep');
 end
+
+load gong 
+sound(y,Fs)
