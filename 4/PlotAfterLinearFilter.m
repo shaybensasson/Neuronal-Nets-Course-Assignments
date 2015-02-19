@@ -6,7 +6,7 @@ ConstantsHeader();
 %choose Rep or NonRep
 MODE = 'NonRep';
 
-load(['MatFiles\AfterGenerator_' MODE '.mat'])
+%TODO: load(['MatFiles\AfterLinearFilter_' MODE '.mat'])
 
 
 switch MODE
@@ -16,7 +16,7 @@ switch MODE
         StimTime = Simulation.StimTimeRep;
     case 'NonRep'
         Simulation = Sim_NonRep;
-        clearvars Sim_NonRep;
+        %TODO: clearvars Sim_NonRep;
         StimTime = Simulation.StimTimeNonRep;
     otherwise
         ME = MException('noSuchMODE', ...
@@ -40,21 +40,24 @@ COLOR_MAP = [43, 87, 154; ... %blue: 1
 COLOR_MAP = COLOR_MAP./255;
 
 
-%for iBinSize=1:1
-for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
+%iBinSize = 1;
+%iNeuron = 2;
+
+for iBinSize=1:1
+%TODO: for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
     curBinSize = Simulation.RATE_BIN_SIZES(iBinSize);
     
-    title = sprintf('R vs R_{Est} (%s), Bin size: %.2f, Using %s Filter', ...
+    title = sprintf('Rate vs Linear Filter (%s), Bin size: %.2f, Using %s Filter', ...
         MODE, curBinSize, iif(Simulation.UsingSTA,'STA','STC'));
     
     hf = figure(iBinSize);
     hf.Name = title;
     
-    %for iNeuron=2:2
-    for iNeuron=1:NEURONS
-        hs = subplot(2,2,iNeuron);
+    for iNeuron=2:2
+    %for iNeuron=1:NEURONS
+        %hs = subplot(2,2,iNeuron);
         
-        PositionOfSubplot = hs.Position;
+        %PositionOfSubplot = hs.Position;
         
         curNeuron = Simulation.Neuron{iNeuron};
 
@@ -74,12 +77,13 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
         
         psth = binnedToPlot(:,2);
         stimsAfterLinearFilter = binnedToPlot(:,3);
-        stimsAfterGenerator = binnedToPlot(:,4);
+        
+        
 
         
         %bind aps to top
-        minValue = min(min(binnedToPlot(:,2:4)));
-        maxValue = max(max(binnedToPlot(:,2:4)));
+        minValue = min(min(binnedToPlot(:,2:3)));
+        maxValue = max(max(binnedToPlot(:,2:3)));
         
         aps = aps*maxValue;
 
@@ -126,51 +130,16 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
         h.Color(4) = 0.45;  % 55% transparent
         h.LineStyle = '--';
 
-        %G filter
-        h = plot(AX(2), binnedToPlot(:,1), stimsAfterGenerator);
-        h.Color = COLOR_MAP(2, :);
-        h.Color(4) = 0.70;  % 30% transparent
-        h.LineWidth = 1.5;
-
         legend('Raw stim values', ...
                 'Aps', ...
                 sprintf('PSTH (%.2f ms)', curBinSize/10), ...
                 sprintf('After %s linear filter', ...
-                    iif(Simulation.UsingSTA,'STA','STC')), ...
-                'After Generator');
-        
-        %% fit measurement
-        SSEk = curNeuron.Rate{iBinSize}.SSEk; %lower is less err
-        SSEg = curNeuron.Rate{iBinSize}.SSEg; %lower is less err
-                
-        %the similarity between two signals, we only need zero lag
-        Cork = abs(xcorr(psth,stimsAfterLinearFilter,0,'coeff')); % 1 if are equal
-        Corg = abs(xcorr(psth,stimsAfterGenerator,0,'coeff')); % 1 if are equal
+                    iif(Simulation.UsingSTA,'STA','STC')) ...
+                );
 
-        yText = minValue-(minValue/10);
-        
-        
-        ha = axes('Position',PositionOfSubplot,'Xlim',[0 1],'Ylim',[0 1],'Box','off','Visible','off','Units','normalized', 'clipping' , 'off');
-        
-        text(0, 0.05, ...
-            sprintf(['SSE after %s kernel: %.2f;\nSSE after Generator: %.2f;\n' ...
-            'Cor.k: %.4f;\nCor.g: %.4f'], ...
-                iif(Simulation.UsingSTA,'STA','STC'), ...
-                SSEk, SSEg, Cork, Corg), ...
-        'HorizontalAlignment' ,'left','VerticalAlignment', 'bottom');
-        
-        
     end %iNeuron
     
     CreateTitleForSubplots(['\bf ' title]);
-    
-    r = 150; %pixels pre inch
-    set(hf, 'PaperUnits', 'inches');
-    set(hf, 'PaperPosition', [0 0 2880 1620]/r); %x_width=10cm y_width=15cm
-
-    saveas(iBinSize, ['RvsRest_' MODE '_BinSize_' ...
-        sprintf('%d', floor(curBinSize)) ...
-        '_UsingSTA_' num2str(Simulation.UsingSTA)], 'png');
     
  end %iBinSize
  

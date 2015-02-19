@@ -3,14 +3,14 @@ clearvars -except Sim_Rep Sim_NonRep;
 ConstantsHeader();
 
 %choose Rep or NonRep
-MODE = 'Rep';
-UsingSTA = 0;
+MODE = 'NonRep';
+UsingSTA = 1;
 
-load(['AfterSTA_' MODE '.mat'])
+load(['MatFiles\AfterSTA_' MODE '.mat'])
     
 switch MODE
     case 'Rep'
-        load('AfterSTA_NonRep.mat') %we're using its STA
+        load('MatFiles\AfterSTA_NonRep.mat') %we're using its STA
         Simulation = Sim_Rep;
         clearvars Sim_Rep;
         StimTime = Simulation.StimTimeRep;
@@ -28,23 +28,19 @@ SAVE_MAT_FILE = 1;
 
 NEURONS = length(Simulation.Neuron);
 ITERATIONS = Simulation.ITERATIONS;
-SECONDS_IN_WINDOW = Simulation.SECONDS_IN_WINDOW;
-TICKS_IN_WINDOW = Simulation.TICKS_IN_WINDOW;
+SECONDS_IN_TRAIL = Simulation.SECONDS_IN_TRAIL;
+TICKS_IN_TRAIL = Simulation.TICKS_IN_TRAIL;
 TICKS_IN_SECOND = Simulation.TICKS_IN_SECOND;
 
 STA_WINDOW_IN_TICKS = Simulation.STA_WINDOW_IN_TICKS;
-STIMS_IN_STA_WINDOW = Simulation.STIMS_IN_STA_WINDOW;
-
-%throw 0-padded convolved values, see conv doc for more info;
-STIMS_TO_THROW_AFTER_CONV = ceil(STIMS_IN_STA_WINDOW/2);
-%duration in seconds to display when ploting multiple rates
-SECONDS_OF_RATE_TO_DISPLAY = 10;
 
 %store for later usage
 Simulation.Phase = CONSTANTS.PHASES.LINEARFILTER;
-Simulation.STIMS_TO_THROW_AFTER_CONV = STIMS_TO_THROW_AFTER_CONV;
-Simulation.SECONDS_OF_RATE_TO_DISPLAY = SECONDS_OF_RATE_TO_DISPLAY;
-
+Simulation.RATE_BIN_SIZES = [Simulation.STIMULUS_EACH_TICKS; ... %sampling freq
+             Simulation.STIMULUS_EACH_TICKS*3; ... 100 msec          
+             Simulation.STIMULUS_EACH_TICKS*5; ... ~150 msec
+         ];
+     
 %Determines whether to use STA or STC filters
 Simulation.UsingSTA = UsingSTA;
         
@@ -52,12 +48,9 @@ Simulation.UsingSTA = UsingSTA;
 for iNeuron=1:NEURONS
     fprintf('[N:#%i] ...\n', iNeuron);
     
-    %create Data that contains normalized data and a column for the filtered data
     curNeuron = Simulation.Neuron{iNeuron};
-    curNeuron.Data = Simulation.Neuron{iNeuron}.RawData;
-    curNeuron.Data(:, 4) = NaN(length(curNeuron.Data), 1);
-    
-    %% apply filter
+        
+    %% get the filter
     if (Simulation.UsingSTA)
         switch MODE
             case 'Rep'
@@ -74,61 +67,51 @@ for iNeuron=1:NEURONS
             case 'NonRep'
                 Filter = Simulation.Neuron{iNeuron}.STCFilter;
         end
-        
-        %we flip the filter so it'd be aligned to STA
-        %originally the STA and the STC filter are mirrored
-        Filter = fliplr(Filter);
     end
     
-    times = curNeuron.RawData(:,1);
-    stimValues = curNeuron.RawData(:,2);
+    %% apply the filter
+    numOfTicksInTrail = length(Simulation.Neuron{iNeuron}.Iteration{1});    
+    neuronData = NaN(numOfTicksInTrail*ITERATIONS, 4);
+    lastIterationIndex = 0;
     
-    NORMALIZE = 1; NORMALIZE_BY_MAX=1;
-    stimValues = normalize(stimValues, NORMALIZE, NORMALIZE_BY_MAX);
-    %update normalized values
-    curNeuron.Data(:,2) = stimValues;
+    for iIteration=1:ITERATIONS
+        %create Data that contains normalized data and a column for the filtered data
+        data = Simulation.Neuron{iNeuron}.Iteration{iIteration};
+        data(:, 4) = NaN(length(data), 1);
         
-    for iIteration=2:ITERATIONS
-        %Normalize stim time to start from 1
-        iEnd = iIteration;
-        iStart = iEnd-1; 
-         
-        onset = StimTime(iStart);
-        next_onset = StimTime(iEnd);
+        times = data(:,1);
+        stimValues = data(:,2);
+    
+        NORMALIZE = 1; NORMALIZE_BY_MAX=1;
+        stimValues = normalize(stimValues, NORMALIZE, NORMALIZE_BY_MAX);
         
-        %filter window of stimValues
-        filter = logical(times(:) >= onset & times(:) < next_onset ...
-            & ~isnan(stimValues(:)));
-        stimValuesOnWindow = curNeuron.RawData(filter, 2);
-                
-        %{ 
-        linear filter the stimVals by the filter
-        we flip the Filter so the convolution will be act as moving window
-        
-        see http://en.wikipedia.org/wiki/Cross-correlation
-        %}
-        stimsAfterLinearFilter = conv(stimValuesOnWindow, flipud(Filter'), 'valid');
+        %update normalized values
+        data(:,2) = stimValues;
+                        
+        % convolve filter with stimValues
+        stimsAfterLinearFilter = conv(stimValues, Filter');
 
-        %added NaNs to 0-padded convolved values, see conv doc for more info;
-        %FUTURE: we might have problems here with different sizes of Filter
-        stimsAfterLinearFilter = padarray(stimsAfterLinearFilter,...
-            [STIMS_TO_THROW_AFTER_CONV-1 0], NaN, 'pre');
-        stimsAfterLinearFilter = padarray(stimsAfterLinearFilter,...
-            [STIMS_TO_THROW_AFTER_CONV 0], NaN, 'post');
+        %throw partial convolved vals
+        STIMS_TO_THROW_AFTER_CONV = STA_WINDOW_IN_TICKS/2; %5000
+        stimsAfterLinearFilter(1:STIMS_TO_THROW_AFTER_CONV-1) = [];
+        stimsAfterLinearFilter(end-STIMS_TO_THROW_AFTER_CONV+1:end) = [];
         
-        curNeuron.Data(filter,4) = stimsAfterLinearFilter;
+        %throw partial convolved vals, throw entire STA window from start
+        %stimsAfterLinearFilter(1:STA_WINDOW_IN_TICKS-1) = [];
+        
+        data(:,4) = stimsAfterLinearFilter;
+        
+        %NOTE: free space
+        Simulation.Neuron{iNeuron}.Iteration{iIteration} = [];
+                
+        %store in neuronData output
+        %nextIterationIndex = lastIterationIndex + numOfTicksInTrail + 1;
+        nextIterationIndex = lastIterationIndex + length(data) + 1;
+        neuronData(lastIterationIndex+1:nextIterationIndex-1,:) = data;
+        lastIterationIndex = nextIterationIndex-1;
     end %for ITERATIONS
     
-    %NOTE: somehow the filter inserts zeros on data that 
-    %  is not included in the query, so we replace them with NaNs
-    %TODO: it might not appear anymore, can be removed?
-    %curNeuron.Data(curNeuron.Data(:,4) == 0,4) = NaN;
-
-    %remove conv padded rows - ap column will be empty, and so is the conv
-    filter = (isnan(curNeuron.Data(:,3)) & isnan(curNeuron.Data(:,4)));
-    curNeuron.Data(filter,:)=[]; %remove padded
-        
-    Simulation.Neuron{iNeuron} = curNeuron;
+    Simulation.Neuron{iNeuron}.Data = neuronData;
 end %for iNeuron
 
 %% binnify into psth bins
@@ -154,23 +137,17 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
         binIndex(binIndex==0)=max(binIndex);
 
         %group by times and sum aps
-        grp_psth = accumarray(binIndex, aps, [length(bins) 1], @nansum, NaN);
+        %   we put 0 in bins without aps
+        grp_psth = accumarray(binIndex, aps, [length(bins) 1], @nansum, 0);
 
         %group by times and mean stim vals
-        grp_afterLinearFilter = accumarray(binIndex, stimsAfterLinearFilter, [length(bins) 1], @nanmean, NaN);
+        %   we put NaN in empty bins (data that was wiped out of iteration)
+        grp_afterLinearFilter = accumarray(binIndex, stimsAfterLinearFilter, [length(bins) 1], @mean, NaN);
 
-        rateData = [bins' grp_psth grp_afterLinearFilter ];
+        rateData = [bins' grp_psth grp_afterLinearFilter];
 
         %remove NaNs
-        rateData(isnan(rateData(:, 2)) | isnan(rateData(:, 3)), :) = [];
-
-        %throw bins before first ap
-        firstApTime = curNeuron.Data(~isnan(aps) & aps>0, 1);
-        firstApTime = firstApTime(1);
-
-        %throw bins before first ap
-        %FUTURE: why do we check for psth == 0?
-        rateData(rateData(:,1)<firstApTime & rateData(:,2) == 0, :) = [];
+        rateData(isnan(rateData(:, 3)), :) = [];
 
         %throw last bin, it has garbage unbinned data (it's acc is NaN)
         rateData = rateData(1:end-1,:); 
@@ -180,10 +157,12 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
         NORMALIZE = 1;
         NORMALIZE_BY_MAX = 1;
 
+        
         psth = normalize(psth, NORMALIZE, NORMALIZE_BY_MAX);
-        rateData(:, 2) = psth;
+                
         binnedStimsAfterLinearFilter = normalize(binnedStimsAfterLinearFilter, NORMALIZE, NORMALIZE_BY_MAX);
-        rateData(:, 3) = binnedStimsAfterLinearFilter;
+        %TODO: we try abs here to make the estimate positive
+        %binnedStimsAfterLinearFilter = abs(binnedStimsAfterLinearFilter);
 
         curNeuron.Rate{iBinSize}.BinSize = curBinSize;
         curNeuron.Rate{iBinSize}.Data = [rateData(:,1) psth binnedStimsAfterLinearFilter];
@@ -205,7 +184,9 @@ end
 
 if (SAVE_MAT_FILE)
     fprintf('Saving simulation output ...\n');
-    save(['AfterLinearFilter_' MODE '.mat'], ['Sim_' MODE]);
+    save(['MatFiles\AfterLinearFilter_' MODE '.mat'], ['Sim_' MODE], '-v7.3');
 end
 
 
+load gong 
+sound(y,Fs)

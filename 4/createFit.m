@@ -26,6 +26,7 @@ ft = 'linearinterp';
 
 % Plot fit with data.
 h = plot( fitresult, xData, yData );
+xlim([-0.6 0.6]);
 
 legend( h, 'After Linear Filter vs. Rate', ...
     sprintf('Interpolant Linear Fit (%s)', MODE), 'Location', 'NorthEast');

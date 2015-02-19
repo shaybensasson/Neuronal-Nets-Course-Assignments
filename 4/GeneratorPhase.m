@@ -3,9 +3,9 @@ clearvars -except Sim_Rep Sim_NonRep;
 ConstantsHeader();
 
 %choose Rep or NonRep
-MODE = 'Rep';
+MODE = 'NonRep';
 
-load(['AfterLinearFilter_' MODE '.mat'])
+load(['MatFiles\AfterLinearFilter_' MODE '.mat'])
     
 switch MODE
     case 'Rep'
@@ -50,7 +50,6 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
         
         %% create the fit
         curveFitData = [stimsAfterLinearFilter psth];
-        curveFitData(isnan(curveFitData(:,1)) | isnan(curveFitData(:,2)), :) = [];
 
         curveFitData = sortrows(curveFitData, 1);
         XVals = curveFitData(:,1); %after linear filter
@@ -65,6 +64,9 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
         %put into bins
         bins = firstBin:FIT_BIN_SIZE:lastBin;
         [bincounts,binIndex] = histc(XVals,bins);
+        
+        %insert any unbinned data to last bin (we're gonna remove it later)
+        %binIndex(binIndex==0)=max(binIndex);
 
         %group by mean
         funcXData = bins';
@@ -72,12 +74,12 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
 
         %remove empty/'zero' intesity buckets
         m = [funcXData funcYMeans bincounts];
+        %m = m(2:end-1, :); %throw first and last bins, really few stims there
         m = m(~isnan(m(:,2)),:);
         funcXData = m(:,1);
         funcYMeans = m(:,2);
         bincounts = m(:,3);
-        
-        
+                
         %create the 'function' using Interpolant Linear Fit
         [fitresult, gof] = createFit(funcXData,funcYMeans,bincounts,iNeuron,MODE);
         curNeuron.Rate{iBinSize}.Generator = fitresult;
@@ -130,7 +132,7 @@ end
 
 if (SAVE_MAT_FILE)
     fprintf('Saving simulation output ...\n');
-    save(['AfterGenerator_' MODE '.mat'], ['Sim_' MODE]);
+    save(['MatFiles\AfterGenerator_' MODE '.mat'], ['Sim_' MODE], '-v7.3');
 end
         
 beep('on');

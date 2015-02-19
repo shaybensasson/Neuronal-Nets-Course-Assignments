@@ -116,7 +116,7 @@ Sim_NonRep = Simulation;
 
 if (SAVE_MAT_FILE)
     fprintf('Saving simulation output ...\n');
-    save('MatFiles\PreProcessed_NonRep.mat', 'Sim_NonRep');
+    save('MatFiles\PreProcessed_NonRep.mat', 'Sim_NonRep', '-v7.3');
 end
 
 load gong 

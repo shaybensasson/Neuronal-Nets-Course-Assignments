@@ -114,7 +114,7 @@ Sim_Rep = Simulation;
 
 if (SAVE_MAT_FILE)
     fprintf('Saving simulation output ...\n');
-    save('MatFiles\PreProcessed_Rep.mat', 'Sim_Rep');
+    save('MatFiles\PreProcessed_Rep.mat', 'Sim_Rep', '-v7.3');
 end
 
 load gong 

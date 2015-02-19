@@ -5,7 +5,6 @@ ConstantsHeader();
 %choose Rep or NonRep
 MODE = 'NonRep';
 
-%load(['FiringRate_' MODE '.mat'])
 load(['MatFiles\PreProcessed_' MODE '.mat'])
     
 switch MODE
@@ -26,6 +25,7 @@ switch MODE
 end
 
 SAVE_MAT_FILE = 1;
+CREATE_STC = 1;
 
 NEURONS=length(Simulation.Neuron); 
 
@@ -33,22 +33,10 @@ STA_WINDOW_IN_MS = 1000;
 STA_WINDOW_IN_SEC = STA_WINDOW_IN_MS/1000;
 STA_WINDOW_IN_TICKS = STA_WINDOW_IN_SEC*Simulation.TICKS_IN_SECOND;
 
-%calculate how many stims in the STA window
-STIMS_IN_STA_WINDOW = floor(STA_WINDOW_IN_TICKS/Simulation.STIMULUS_EACH_TICKS);
-
 Simulation.Phase = CONSTANTS.PHASES.STASTC;
 Simulation.STA_WINDOW_IN_MS = STA_WINDOW_IN_MS;
-Simulation.STA_WINDOW_IN_SEC = STA_WINDOW_IN_TICKS;
+Simulation.STA_WINDOW_IN_SEC = STA_WINDOW_IN_SEC;
 Simulation.STA_WINDOW_IN_TICKS = STA_WINDOW_IN_TICKS;
-Simulation.STIMS_IN_STA_WINDOW = STIMS_IN_STA_WINDOW;
-
-Simulation.PSTH_BIN_SIZES = [Simulation.STIMULUS_EACH_TICKS; ... %sampling freq
-             Simulation.STIMULUS_EACH_TICKS*3; ... 100 msec          
-             Simulation.STIMULUS_EACH_TICKS*5; ... ~150 msec
-             Simulation.STIMULUS_EACH_TICKS*10; ... ~330 msec
-             Simulation.STIMULUS_EACH_TICKS*15; ... ~500 msec
-             Simulation.STIMULUS_EACH_TICKS*30]; %1000 msec = 1 sec 
-%}
 
 minSTAValue = inf; maxSTAValue = -inf;
 minSTCFilterValue = inf; maxSTCFilterValue = -inf;
@@ -69,7 +57,7 @@ for iNeuron=1:NEURONS
     totalAPsCounted = 0;
            
     for iIteration=1:Simulation.ITERATIONS
-            
+        
         data = Simulation.Neuron{iNeuron}.Iteration{iIteration};
         
         %start from AP that has enough history
@@ -109,13 +97,17 @@ for iNeuron=1:NEURONS
     
     end %iIteration
     
-    %get the data physically used
-    STAStims = STAStims(1:totalAPsCounted, :);
+    if (CREATE_STC) %pref improvement
+        %get the data physically used
+        STAStims = STAStims(1:totalAPsCounted, :);
+    end
     
     %{
     normalize: 
         this way we unify all the filters from different neurons,
         so we could compare them.
+    
+        NOTE: checked without normalize, the linear fit looks worse
     %}
     STA=(STA-mean(STA))./max(abs(STA));
     
@@ -125,41 +117,45 @@ for iNeuron=1:NEURONS
     
     
     Simulation.Neuron{iNeuron}.STA = STA;
-    
-    %% STC calculation
-        
-    %FUTURE compare vs pillow: 
-    %see Schwartz et al.
-    %stackSTA = repmat(STA,totalAPs,1);
-    %STC = ((accSTAStims-stackSTA)' * (accSTAStims-stackSTA)) ./(totalAPs-1);
-    
-    %see
-    %http://pillowlab.cps.utexas.edu/teaching/CompNeuro10/slides/slides07_STC_LNPmodel.pdf,
-    %slide 43
-    STC = STAStims' * STAStims ./(totalAPsCounted);
-    
-    [V,D] = eig(STC);
-    %{ 
-    produces matrices of eigenvalues (D, diag(D) are eigenvalues) 
-    and eigenvectors (V, its columns are the eigenvectors of A) of matrix A, 
-    so that A*V = V*D.
-    %}
-    
-    eVals = diag(D); %just as SVD, these are variances
-    eVects = V; 
-    
-    %look for the most variance Ev
-    [~,idx] = max(eVals);
 
-    Filter = eVects(:, idx)';
-    Filter = normalize(Filter, 1, 1);
-    
-    %use for ploting
-    minSTCFilterValue = min(minSTCFilterValue, min(Filter));
-    maxSTCFilterValue = max(maxSTCFilterValue, max(Filter));
-    
-    Simulation.Neuron{iNeuron}.EigenValues = eVals;
-    Simulation.Neuron{iNeuron}.STCFilter = Filter;
+    %% STC calculation
+    if (CREATE_STC)
+
+        fprintf('STC calculation ...\n');
+        
+        %FUTURE compare vs pillow: 
+        %see Schwartz et al.
+        %stackSTA = repmat(STA,totalAPs,1);
+        %STC = ((accSTAStims-stackSTA)' * (accSTAStims-stackSTA)) ./(totalAPs-1);
+
+        %see
+        %http://pillowlab.cps.utexas.edu/teaching/CompNeuro10/slides/slides07_STC_LNPmodel.pdf,
+        %slide 43
+        STC = STAStims' * STAStims ./(totalAPsCounted);
+
+        [V,D] = eig(STC);
+        %{ 
+        produces matrices of eigenvalues (D, diag(D) are eigenvalues) 
+        and eigenvectors (V, its columns are the eigenvectors of A) of matrix A, 
+        so that A*V = V*D.
+        %}
+
+        eVals = diag(D); %just as SVD, these are variances
+        eVects = V; 
+
+        %look for the most variance Ev
+        [~,idx] = max(eVals);
+
+        Filter = eVects(:, idx)';
+        Filter = normalize(Filter, 1, 1);
+
+        %use for ploting
+        minSTCFilterValue = min(minSTCFilterValue, min(Filter));
+        maxSTCFilterValue = max(maxSTCFilterValue, max(Filter));
+
+        Simulation.Neuron{iNeuron}.EigenValues = eVals;
+        Simulation.Neuron{iNeuron}.STCFilter = Filter;
+    end
     
 end %iNeuron
 
@@ -169,11 +165,11 @@ figure(1);
 for iNeuron=1:NEURONS
     subplot(2,2, iNeuron);
     STA = Simulation.Neuron{iNeuron}.STA;
-    
+        
     x = linspace(-STA_WINDOW_IN_MS, 0, length(STA));
     plot(x, STA);
     
-    ylim([minSTAValue-0.1 maxSTAValue+0.1]);
+    ylim([minSTAValue maxSTAValue]);
     
 
     title(sprintf('Neuron #%d', iNeuron));
@@ -185,46 +181,48 @@ end
  
 saveas(1, ['STA_' MODE], 'png');
 
-%% plot eVals
-h = figure(2);
+if (CREATE_STC)
+    %% plot eVals
+    h = figure(2);
 
-for iNeuron=1:NEURONS
-    subplot(2,2, iNeuron);
-    eVals = Simulation.Neuron{iNeuron}.EigenValues;
-    
-    plot(eVals, 'o'); % examine eigenvalues
-    
-    ylim([min(eVals) max(eVals)+2]);
-    
-    
-    title(sprintf('Neuron #%d', iNeuron));
-    xlabel('EigenValue/EigenVector index');
-    ylabel('Variance');
-    
-    CreateTitleForSubplots('\bf Eigenvalues (of STC)');
+    for iNeuron=1:NEURONS
+        subplot(2,2, iNeuron);
+        eVals = Simulation.Neuron{iNeuron}.EigenValues;
+
+        plot(eVals, 'o'); % examine eigenvalues
+
+        ylim([min(eVals) max(eVals)+100]);
+
+
+        title(sprintf('Neuron #%d', iNeuron));
+        xlabel('EigenValue/EigenVector index');
+        ylabel('Variance');
+
+        CreateTitleForSubplots('\bf Eigenvalues (of STC)');
+    end
+
+    saveas(h, ['EigenValues_' MODE], 'png');
+
+    %% plot STC filter
+    h = figure(3);
+
+    for iNeuron=1:NEURONS
+        subplot(2,2, iNeuron);
+        Filter = Simulation.Neuron{iNeuron}.STCFilter;
+
+        x = linspace(-STA_WINDOW_IN_MS, 0, length(Filter));
+        plot(x, Filter, 'r');
+        ylim([minSTCFilterValue maxSTCFilterValue]);
+
+        title(sprintf('Neuron #%d', iNeuron));
+        xlabel('Time (ms)');
+        ylabel('Light levels');
+
+        CreateTitleForSubplots('\bf STC Filter');
+    end
+
+    saveas(h, ['STCFilter_' MODE], 'png');
 end
-
-saveas(h, ['EigenValues_' MODE], 'png');
-
-%% plot STC filter
-h = figure(3);
-
-for iNeuron=1:NEURONS
-    subplot(2,2, iNeuron);
-    Filter = Simulation.Neuron{iNeuron}.STCFilter;
-            
-    x = linspace(-STA_WINDOW_IN_MS, 0, length(Filter));
-    plot(x, Filter, 'r');
-    ylim([minSTCFilterValue-0.1 maxSTCFilterValue+0.1]);
-   
-    title(sprintf('Neuron #%d', iNeuron));
-    xlabel('Time (ms)');
-    ylabel('Light levels');
-    
-    CreateTitleForSubplots('\bf STC Filter');
-end
-
-saveas(h, ['STCFilter_' MODE], 'png');
 
 %% save
 switch MODE
@@ -241,7 +239,7 @@ end
 
 if (SAVE_MAT_FILE)
     fprintf('Saving simulation output ...\n');
-    save(['MatFiles\AfterSTA_' MODE '.mat'], ['Sim_' MODE]);
+    save(['MatFiles\AfterSTA_' MODE '.mat'], ['Sim_' MODE], '-v7.3');
 end
 
 load gong 
