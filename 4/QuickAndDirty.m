@@ -38,9 +38,7 @@ iEnd = iIteration+1;
 %actual ticks in trail limited by TICKS_IN_TRAIL
 dataTicks = TICKS_IN_TRAIL;
 
-%Normalize stim time to start from 1
-StimTimeNonRepNorm=StimTimeNonRep-StimTimeNonRep(iStart)+1;
-iteration.time= (StimTimeNonRepNorm(iStart):StimTimeNonRepNorm(iEnd)-1)'; %first 100 secs
+iteration.time= (StimTimeNonRep(iStart):StimTimeNonRep(iEnd)-1)'; %first 100 secs
 dataTicks = min(dataTicks,length(iteration.time)); 
 
 % get stim values of the current non-rep trail        
@@ -83,7 +81,7 @@ iteration.APs(indexesOfAPsInTrail)=1;
 
 %create fixed data set
 iteration.all = NaN(dataTicks, 3);
-iteration.all(:,1) = iteration.time + onset -1;
+iteration.all(:,1) = iteration.time;
 iteration.all(:,2) = iteration.stimuli;
 iteration.all(:,3) = iteration.APs;
 
@@ -153,15 +151,13 @@ lastIterationIndex = 0;
 
 iIteration=1;
 
-%create Data that contains normalized data and a column for the filtered data
+%create another column for the filtered data
 data = Simulation.Neuron{iNeuron}.Iteration{iIteration};
 data(:, 4) = NaN(length(data), 1);
 
-times = data(:,1);
 stimValues = data(:,2);
 
-NORMALIZE = 1; NORMALIZE_BY_MAX=1;
-stimValues = normalize(stimValues, NORMALIZE, NORMALIZE_BY_MAX);
+%NOTE: we decided not to normalize stim values before conv
 
 %update normalized values
 data(:,2) = stimValues;

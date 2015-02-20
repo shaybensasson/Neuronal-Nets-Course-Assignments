@@ -26,7 +26,7 @@ ft = 'linearinterp';
 
 % Plot fit with data.
 h = plot( fitresult, xData, yData );
-xlim([-0.6 0.6]);
+xlim([min(xData) max(xData)]);
 
 legend( h, 'After Linear Filter vs. Rate', ...
     sprintf('Interpolant Linear Fit (%s)', MODE), 'Location', 'NorthEast');
@@ -50,7 +50,7 @@ ax2 = axes('Position',ax1_pos,...
 %ax2.XColor = [0 0 0 0]; %transparent
 
 ylabel(ax2, 'Bin counts');
-ylim(ax2, [-100, 2500]);
+ylim(ax2, [min(bincounts)-max(bincounts)*0.01, max(bincounts)+max(bincounts)*0.01]);
 
 hl = line(xData,bincounts,'Parent',ax2,'Color','k');
 hl.LineStyle = '--';
