@@ -153,26 +153,21 @@ iIteration=1;
 
 %create another column for the filtered data
 data = Simulation.Neuron{iNeuron}.Iteration{iIteration};
-data(:, 4) = NaN(length(data), 1);
-
-stimValues = data(:,2);
+stimValues = data(:, 2);
 
 %NOTE: we decided not to normalize stim values before conv
 
-%update normalized values
-data(:,2) = stimValues;
+% convolve flipped filter (because conv flips it) with stimValues
+stimsAfterLinearFilter = conv(stimValues, flipud(Filter'), 'valid');
 
-% convolve filter with stimValues
-stimsAfterLinearFilter = conv(stimValues, Filter');
+%{
+% run a Filter as a linear window on stimValues
+%stimsAfterLinearFilter2 = funLinearWindow(stimValues, Filter');
+%}
 
-%throw partial convolved vals
-STIMS_TO_THROW_AFTER_CONV = STA_WINDOW_IN_TICKS/2; %5000
-stimsAfterLinearFilter(1:STIMS_TO_THROW_AFTER_CONV-1) = [];
-stimsAfterLinearFilter(end-STIMS_TO_THROW_AFTER_CONV+1:end) = [];
+convedDiff = length(stimValues)-length(stimsAfterLinearFilter);
 
-%throw partial convolved vals, throw entire STA window from start
-%stimsAfterLinearFilter(1:STA_WINDOW_IN_TICKS-1) = [];
-
+data = data(convedDiff+1:end, :);
 data(:,4) = stimsAfterLinearFilter;
 
 %NOTE: free space
@@ -183,6 +178,9 @@ data(:,4) = stimsAfterLinearFilter;
 nextIterationIndex = lastIterationIndex + length(data) + 1;
 neuronData(lastIterationIndex+1:nextIterationIndex-1,:) = data;
 lastIterationIndex = nextIterationIndex-1;
+
+%get only used data vs allocated
+neuronData = neuronData(1:lastIterationIndex, :);
     
 Simulation.Neuron{iNeuron}.Data = neuronData;
 
@@ -226,11 +224,10 @@ iBinSize=1;
         psth = rateData(:, 2);
         binnedStimsAfterLinearFilter = rateData(:, 3);
 
-        NORMALIZE = 1;
-        NORMALIZE_BY_MAX = 1;
-        
+        NORMALIZE = 1; NORMALIZE_BY_MAX = 1;
         psth = normalize(psth, NORMALIZE, NORMALIZE_BY_MAX);
                
+        NORMALIZE = 1; NORMALIZE_BY_MAX = 1;
         binnedStimsAfterLinearFilter = normalize(binnedStimsAfterLinearFilter, NORMALIZE, NORMALIZE_BY_MAX);
         %TODO: we try abs here to make the estimate positive
         %binnedStimsAfterLinearFilter = abs(binnedStimsAfterLinearFilter);
