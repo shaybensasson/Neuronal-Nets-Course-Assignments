@@ -1,87 +1,24 @@
-%load('MatFiles\AfterSTA_NonRep.mat') 
-MODE='NonRep';
-Simulation = Sim_NonRep;
-NEURONS=length(Simulation.Neuron); 
-STA_WINDOW_IN_MS = Simulation.STA_WINDOW_IN_MS;
+x = (0:100)';
+y = 5 + 10./(1+exp(-(x-40)/10)) + randn(size(x));
+plot(x,y,'bo')
 
-minSTAValue = inf; maxSTAValue = -inf;
-minSTCFilterValue = inf; maxSTCFilterValue = -inf;
+%%
+f = @(p,x) p(1) + p(2) ./ (1 + exp(-(x-p(3))/p(4)));
+p = nlinfit(x,y,f,[0 20 50 5])
+line(x,f(p,x),'color','r')
 
-for iNeuron=1:NEURONS
-    
-    STA = Simulation.Neuron{iNeuron}.STA;
-    
-    minSTAValue = min(minSTAValue, min(STA));
-    maxSTAValue = max(maxSTAValue, max(STA));
-    
-    Filter = Simulation.Neuron{iNeuron}.STCFilter;
-    
-    minSTCFilterValue = min(minSTCFilterValue, min(Filter));
-    maxSTCFilterValue = max(maxSTCFilterValue, max(Filter));
-end
+%%
+fit(x,y,'a + b ./ (1 + exp(-(x-m)/s))','start',[0 20 50 5])
+%%
+%idxs = 1:length(m);
+%m = [m idxs'];
 
-%% plot STA
-figure(1);
+filter = m(:,1)>=-0.6 & m(:,1)<=0.6;
+mFiltered = m(filter, :)
+idxFrom = mFiltered(1,4);
+m(1:idxFrom, 2) = m(idxFrom, 2);
+idxTo = mFiltered(end,4);
+m(idxTo:end, 2) = m(idxTo, 2);
 
-for iNeuron=1:NEURONS
-    subplot(2,2, iNeuron);
-    STA = Simulation.Neuron{iNeuron}.STA;
-        
-    x = linspace(-STA_WINDOW_IN_MS, 0, length(STA));
-    plot(x, STA);
-    
-    ylim([minSTAValue maxSTAValue]);
-    
-
-    title(sprintf('Neuron #%d', iNeuron));
-    xlabel('Time (ms)');
-    ylabel('Light levels');
-    
-    CreateTitleForSubplots('\bf STA');
-end
- 
-saveas(1, ['STA_' MODE], 'png');
-
-%% plot eVals
-h = figure(2);
-
-for iNeuron=1:NEURONS
-    subplot(2,2, iNeuron);
-    eVals = Simulation.Neuron{iNeuron}.EigenValues;
-    
-    plot(eVals, 'o'); % examine eigenvalues
-    
-    ylim([min(eVals) max(eVals)+100]);
-    
-    
-    title(sprintf('Neuron #%d', iNeuron));
-    xlabel('EigenValue/EigenVector index');
-    ylabel('Variance');
-    
-    CreateTitleForSubplots('\bf Eigenvalues (of STC)');
-end
-
-saveas(h, ['EigenValues_' MODE], 'png');
-
-%% plot STC filter
-h = figure(3);
-
-for iNeuron=1:NEURONS
-    subplot(2,2, iNeuron);
-    Filter = Simulation.Neuron{iNeuron}.STCFilter;
-            
-    x = linspace(-STA_WINDOW_IN_MS, 0, length(Filter));
-    plot(x, Filter, 'r');
-    ylim([minSTCFilterValue maxSTCFilterValue]);
-   
-    title(sprintf('Neuron #%d', iNeuron));
-    xlabel('Time (ms)');
-    ylabel('Light levels');
-    
-    CreateTitleForSubplots('\bf STC Filter');
-end
-
-saveas(h, ['STCFilter_' MODE], 'png');
-
-%load gong 
-%sound(y,Fs)
+xData = m(:, 1);
+yData = m(:, 2);

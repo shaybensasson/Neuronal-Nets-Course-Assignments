@@ -11,6 +11,11 @@ if (~exist('TTNonRep','var'))
     load('FixedData.mat')
 end
 
+g_iBinSize = 1;
+%g_BinSize = 500;
+g_BinSize = 333;
+
+
 %secs in stimulus non-rep trail
 SECONDS_IN_TRAIL = 100;
 TICKS_IN_SECOND = 10000;
@@ -74,7 +79,7 @@ filter = logical(timeOfAPs(:) >= onset & timeOfAPs(:) < next_onset);
 indexesOfAPs = indexes(filter);
 
 iteration.APs = NaN(dataTicks,1);
-%normalize the APs, to the start of trail
+%convert times to indexes
 indexesOfAPsInTrail = timeOfAPs(indexesOfAPs)-onset + 1; %the index is 1 based
 indexesOfAPsInTrail(indexesOfAPsInTrail>dataTicks)=[]; %remove aps out of ticks range
 iteration.APs(indexesOfAPsInTrail)=1;
@@ -109,10 +114,12 @@ Simulation.Neuron{iNeuron}.STCFilter = STCFilter;
 %% Linear Filter
 UsingSTA = 1;
 
+%{
 Simulation.RATE_BIN_SIZES = [STIMULUS_EACH_TICKS; ... %sampling freq
              STIMULUS_EACH_TICKS*3; ... 100 msec          
              STIMULUS_EACH_TICKS*5; ... ~150 msec
          ];
+%}
 
 %Determines whether to use STA or STC filters
 Simulation.UsingSTA = UsingSTA;
@@ -143,6 +150,10 @@ else
     end
 end
 
+%NOTE: normalize the filter
+NORMALIZE = 1; NORMALIZE_BY_MAX = 1;
+Filter = normalize(Filter, NORMALIZE, NORMALIZE_BY_MAX);
+
 % apply the filter
 numOfTicksInTrail = length(Simulation.Neuron{iNeuron}.Iteration{1});    
 %neuronData = NaN(numOfTicksInTrail*ITERATIONS, 4);
@@ -155,20 +166,32 @@ iIteration=1;
 data = Simulation.Neuron{iNeuron}.Iteration{iIteration};
 stimValues = data(:, 2);
 
-%NOTE: we decided not to normalize stim values before conv
+%NOTE: The Generator is indifferent to the normalize of stimValues
+%NORMALIZE = 1; NORMALIZE_BY_MAX = 1;
+%stimValues = normalize(stimValues, NORMALIZE, NORMALIZE_BY_MAX);
 
 % convolve flipped filter (because conv flips it) with stimValues
 stimsAfterLinearFilter = conv(stimValues, flipud(Filter'), 'valid');
+%stimsAfterLinearFilter = conv(stimValues, fliplr(Filter), 'full'); %for full conv
 
 %{
 % run a Filter as a linear window on stimValues
 %stimsAfterLinearFilter2 = funLinearWindow(stimValues, Filter');
 %}
 
-convedDiff = length(stimValues)-length(stimsAfterLinearFilter);
+
+
+%convedDiff = length(stimsAfterLinearFilter)-length(stimValues); %for full conv
+convedDiff = length(stimValues) - length(stimsAfterLinearFilter);
 
 data = data(convedDiff+1:end, :);
+
+%NOTE: normalize stim values fater conv
+NORMALIZE = 1; NORMALIZE_BY_MAX = 1;
+stimsAfterLinearFilter = normalize(stimsAfterLinearFilter, NORMALIZE, NORMALIZE_BY_MAX);
+
 data(:,4) = stimsAfterLinearFilter;
+%data(end-convedDiff: end, :) = []; %for full conv
 
 %NOTE: free space
 %Simulation.Neuron{iNeuron}.Iteration{iIteration} = [];
@@ -186,8 +209,10 @@ Simulation.Neuron{iNeuron}.Data = neuronData;
 
 % binnify into psth bins
 fprintf('\nBinnify into psth bins ... \n')
-iBinSize=1;
-    curBinSize = Simulation.RATE_BIN_SIZES(iBinSize);
+%iBinSize=1;
+iBinSize=g_iBinSize;
+    %curBinSize = Simulation.RATE_BIN_SIZES(iBinSize);
+    curBinSize = g_BinSize;
 
     iNeuron = 2;
         fprintf('[Bsz,N:#%d,#%d] ...\n', iBinSize, iNeuron);
@@ -213,6 +238,7 @@ iBinSize=1;
         %group by times and mean stim vals
         %   we put NaN in empty bins (data that was wiped out of iteration)
         grp_afterLinearFilter = accumarray(binIndex, stimsAfterLinearFilter, [length(bins) 1], @mean, NaN);
+        %grp_afterLinearFilter = accumarray(binIndex, stimsAfterLinearFilter, [length(bins) 1], @sum, NaN);
 
         rateData = [bins' grp_psth grp_afterLinearFilter];
 
@@ -221,26 +247,31 @@ iBinSize=1;
 
         %throw last bin, it has garbage unbinned data (it's acc is NaN)
         rateData = rateData(1:end-1,:); 
+        times = rateData(:, 1);
         psth = rateData(:, 2);
         binnedStimsAfterLinearFilter = rateData(:, 3);
 
+        %Normalize PSTH and stims after conv
         NORMALIZE = 1; NORMALIZE_BY_MAX = 1;
         psth = normalize(psth, NORMALIZE, NORMALIZE_BY_MAX);
                
         NORMALIZE = 1; NORMALIZE_BY_MAX = 1;
         binnedStimsAfterLinearFilter = normalize(binnedStimsAfterLinearFilter, NORMALIZE, NORMALIZE_BY_MAX);
+        
         %TODO: we try abs here to make the estimate positive
         %binnedStimsAfterLinearFilter = abs(binnedStimsAfterLinearFilter);
-
+        
         curNeuron.Rate{iBinSize}.BinSize = curBinSize;
         curNeuron.Rate{iBinSize}.Data = [rateData(:,1) psth binnedStimsAfterLinearFilter];
         
         Simulation.Neuron{iNeuron} = curNeuron;
 
 %% Generator
-iBinSize=1;
+%iBinSize=1;
+iBinSize=g_iBinSize;
 
-    curBinSize = Simulation.RATE_BIN_SIZES(iBinSize);
+    %curBinSize = Simulation.RATE_BIN_SIZES(iBinSize);
+    curBinSize = g_BinSize;
     
     title = sprintf('Generator (%s), Bin size: %.2f, Using %s Filter', ...
         MODE, curBinSize, iif(Simulation.UsingSTA,'STA','STC'));
@@ -287,6 +318,18 @@ iBinSize=1;
         m = [funcXData funcYMeans bincounts];
         %m = m(2:end-1, :); %throw first and last bins, really few stims there
         m = m(~isnan(m(:,2)),:);
+        
+               
+        %smoothen the edges with values
+        idxs = 1:length(m);
+        m = [m idxs'];
+        filter = m(:,1)>=-0.6 & m(:,1)<=0.6;
+        mFiltered = m(filter, :)
+        idxFrom = mFiltered(1,4);
+        m(1:idxFrom, 2) = m(idxFrom, 2);
+        idxTo = mFiltered(end,4);
+        m(idxTo:end, 2) = m(idxTo, 2);
+
         funcXData = m(:,1);
         funcYMeans = m(:,2);
         bincounts = m(:,3);
@@ -343,8 +386,10 @@ COLOR_MAP = COLOR_MAP./255;
 
 
 
-iBinSize=1;
-    curBinSize = Simulation.RATE_BIN_SIZES(iBinSize);
+%iBinSize=1;
+iBinSize=g_iBinSize;
+    %curBinSize = Simulation.RATE_BIN_SIZES(iBinSize);
+    curBinSize = g_BinSize;
     
     title = sprintf('R vs R_{Est} (%s), Bin size: %.2f, Using %s Filter', ...
         MODE, curBinSize, iif(Simulation.UsingSTA,'STA','STC'));
