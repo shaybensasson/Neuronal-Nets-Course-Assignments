@@ -6,7 +6,7 @@ ConstantsHeader();
 %choose Rep or NonRep
 MODE = 'NonRep';
 
-%TODO: load(['MatFiles\AfterLinearFilter_' MODE '.mat'])
+load(['MatFiles\AfterLinearFilter_' MODE '.mat'])
 
 
 switch MODE
@@ -16,7 +16,7 @@ switch MODE
         StimTime = Simulation.StimTimeRep;
     case 'NonRep'
         Simulation = Sim_NonRep;
-        %TODO: clearvars Sim_NonRep;
+        clearvars Sim_NonRep;
         StimTime = Simulation.StimTimeNonRep;
     otherwise
         ME = MException('noSuchMODE', ...

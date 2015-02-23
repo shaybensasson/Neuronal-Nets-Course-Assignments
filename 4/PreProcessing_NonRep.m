@@ -56,9 +56,7 @@ for iNeuron = 1:length(TTNonRep)
         %actual ticks in trail limited by TICKS_IN_TRAIL
         dataTicks = TICKS_IN_TRAIL;
         
-        %Normalize stim time to start from 1
-        StimTimeNonRepNorm=StimTimeNonRep-StimTimeNonRep(iStart)+1;
-        iteration.time= (StimTimeNonRepNorm(iStart):StimTimeNonRepNorm(iEnd)-1)'; %first 100 secs
+        iteration.time= (StimTimeNonRep(iStart):StimTimeNonRep(iEnd)-1)'; %first 100 secs
         dataTicks = min(dataTicks,length(iteration.time)); 
                 
         %% get stim values of the current non-rep trail        
@@ -94,14 +92,15 @@ for iNeuron = 1:length(TTNonRep)
         indexesOfAPs = indexes(filter);
 
         iteration.APs = NaN(dataTicks,1);
-        %normalize the APs, to the start of trail
+
+        %convert times to indexes
         indexesOfAPsInTrail = timeOfAPs(indexesOfAPs)-onset + 1; %the index is 1 based
         indexesOfAPsInTrail(indexesOfAPsInTrail>dataTicks)=[]; %remove aps out of ticks range
         iteration.APs(indexesOfAPsInTrail)=1;
 
         %create fixed data set
         iteration.all = NaN(dataTicks, 3);
-        iteration.all(:,1) = iteration.time + onset -1;
+        iteration.all(:,1) = iteration.time;
         iteration.all(:,2) = iteration.stimuli;
         iteration.all(:,3) = iteration.APs;
         

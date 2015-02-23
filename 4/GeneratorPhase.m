@@ -55,6 +55,9 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
         XVals = curveFitData(:,1); %after linear filter
         YVals = curveFitData(:,2); %psth
 
+        %NOTE: kept for diag later
+        %plot(XVals, YVals, 'o'); %we get a shiftet gausian
+        
         FIT_BIN_SIZE=0.1;
 
         %create nice looking numbers
@@ -76,6 +79,7 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
         m = [funcXData funcYMeans bincounts];
         %m = m(2:end-1, :); %throw first and last bins, really few stims there
         m = m(~isnan(m(:,2)),:);
+        
         funcXData = m(:,1);
         funcYMeans = m(:,2);
         bincounts = m(:,3);

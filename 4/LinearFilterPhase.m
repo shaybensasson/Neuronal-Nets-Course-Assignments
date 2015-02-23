@@ -75,19 +75,27 @@ for iNeuron=1:NEURONS
     lastIterationIndex = 0;
     
     for iIteration=1:ITERATIONS
-        %create Data that contains normalized data and a column for the filtered data
+        %merge filtered column into data
         data = Simulation.Neuron{iNeuron}.Iteration{iIteration};
-        data(:, 4) = NaN(length(data), 1);
-        
-        times = data(:,1);
         stimValues = data(:,2);
     
-        NORMALIZE = 1; NORMALIZE_BY_MAX=1;
-        stimValues = normalize(stimValues, NORMALIZE, NORMALIZE_BY_MAX);
+        %NOTE: The Generator is indifferent to the normalize of stimValues
+        %NORMALIZE = 1; NORMALIZE_BY_MAX = 1;
+        %stimValues = normalize(stimValues, NORMALIZE, NORMALIZE_BY_MAX);
         
-        %update normalized values
-        data(:,2) = stimValues;
-                        
+        % convolve flipped filter (because conv flips it) with stimValues
+        stimsAfterLinearFilter = conv(stimValues, flipud(Filter'), 'valid');
+        %stimsAfterLinearFilter = conv(stimValues, fliplr(Filter), 'full'); %for full conv
+        
+        %{
+        % run a Filter as a linear window on stimValues
+        %stimsAfterLinearFilter2 = funLinearWindow(stimValues, Filter');
+        %}
+
+        %{ 
+                *********** OLD ************** 
+        keeping for lookup and understanding of the whole processs
+
         % convolve filter with stimValues
         stimsAfterLinearFilter = conv(stimValues, Filter');
 
@@ -98,8 +106,19 @@ for iNeuron=1:NEURONS
         
         %throw partial convolved vals, throw entire STA window from start
         %stimsAfterLinearFilter(1:STA_WINDOW_IN_TICKS-1) = [];
+        %}
         
+        %convedDiff = length(stimsAfterLinearFilter)-length(stimValues); %for full conv
+        convedDiff = length(stimValues) - length(stimsAfterLinearFilter);
+        
+        data = data(convedDiff+1:end, :);
+        
+        %NOTE: normalize stim values fater conv
+        NORMALIZE = 1; NORMALIZE_BY_MAX = 1;
+        stimsAfterLinearFilter = normalize(stimsAfterLinearFilter, NORMALIZE, NORMALIZE_BY_MAX);
+
         data(:,4) = stimsAfterLinearFilter;
+        %data(end-convedDiff: end, :) = []; %for full conv
         
         %NOTE: free space
         Simulation.Neuron{iNeuron}.Iteration{iIteration} = [];
@@ -111,6 +130,9 @@ for iNeuron=1:NEURONS
         lastIterationIndex = nextIterationIndex-1;
     end %for ITERATIONS
     
+    %get only used data vs allocated
+    neuronData = neuronData(1:lastIterationIndex, :);
+
     Simulation.Neuron{iNeuron}.Data = neuronData;
 end %for iNeuron
 
@@ -154,16 +176,13 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
         psth = rateData(:, 2);
         binnedStimsAfterLinearFilter = rateData(:, 3);
 
-        NORMALIZE = 1;
-        NORMALIZE_BY_MAX = 1;
-
-        
+        %Normalize PSTH and stims after conv
+        NORMALIZE = 1; NORMALIZE_BY_MAX = 1;
         psth = normalize(psth, NORMALIZE, NORMALIZE_BY_MAX);
                 
+        NORMALIZE = 1; NORMALIZE_BY_MAX = 1;
         binnedStimsAfterLinearFilter = normalize(binnedStimsAfterLinearFilter, NORMALIZE, NORMALIZE_BY_MAX);
-        %TODO: we try abs here to make the estimate positive
-        %binnedStimsAfterLinearFilter = abs(binnedStimsAfterLinearFilter);
-
+        
         curNeuron.Rate{iBinSize}.BinSize = curBinSize;
         curNeuron.Rate{iBinSize}.Data = [rateData(:,1) psth binnedStimsAfterLinearFilter];
         

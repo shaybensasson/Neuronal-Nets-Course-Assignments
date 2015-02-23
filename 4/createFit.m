@@ -21,7 +21,7 @@ m = [funcXData, funcYMeans, bincounts];
 idxs = 1:length(m);
 m = [m idxs'];
 filter = m(:,1)>=-0.6 & m(:,1)<=0.6;
-mFiltered = m(filter, :)
+mFiltered = m(filter, :);
 idxFrom = mFiltered(1,4);
 m(1:idxFrom, 2) = m(idxFrom, 2);
 idxTo = mFiltered(end,4);
