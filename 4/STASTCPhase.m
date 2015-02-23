@@ -106,10 +106,9 @@ for iNeuron=1:NEURONS
     normalize: 
         this way we unify all the filters from different neurons,
         so we could compare them.
-    
-        NOTE: checked without normalize, the linear fit looks worse
     %}
-    STA=(STA-mean(STA))./max(abs(STA));
+    NORMALIZE = 1; NORMALIZE_BY_MAX=1;
+    STA=normalize(STA, NORMALIZE, NORMALIZE_BY_MAX);
     
     %use for ploting
     minSTAValue = min(minSTAValue, min(STA));
@@ -147,7 +146,8 @@ for iNeuron=1:NEURONS
         [~,idx] = max(eVals);
 
         Filter = eVects(:, idx)';
-        Filter = normalize(Filter, 1, 1);
+        NORMALIZE = 1; NORMALIZE_BY_MAX=1;
+        Filter = normalize(Filter, NORMALIZE, NORMALIZE_BY_MAX);
 
         %use for ploting
         minSTCFilterValue = min(minSTCFilterValue, min(Filter));
@@ -165,7 +165,7 @@ figure(1);
 for iNeuron=1:NEURONS
     subplot(2,2, iNeuron);
     STA = Simulation.Neuron{iNeuron}.STA;
-        
+    
     x = linspace(-STA_WINDOW_IN_MS, 0, length(STA));
     plot(x, STA);
     
