@@ -297,6 +297,9 @@ iBinSize=g_iBinSize;
         XVals = curveFitData(:,1); %after linear filter
         YVals = curveFitData(:,2); %psth
 
+        %TODO: remove this
+        %plot(XVals, YVals, 'o'); %we get a shifter gausian
+        
         FIT_BIN_SIZE=0.1;
 
         %create nice looking numbers
@@ -319,17 +322,6 @@ iBinSize=g_iBinSize;
         %m = m(2:end-1, :); %throw first and last bins, really few stims there
         m = m(~isnan(m(:,2)),:);
         
-               
-        %smoothen the edges with values
-        idxs = 1:length(m);
-        m = [m idxs'];
-        filter = m(:,1)>=-0.6 & m(:,1)<=0.6;
-        mFiltered = m(filter, :)
-        idxFrom = mFiltered(1,4);
-        m(1:idxFrom, 2) = m(idxFrom, 2);
-        idxTo = mFiltered(end,4);
-        m(idxTo:end, 2) = m(idxTo, 2);
-
         funcXData = m(:,1);
         funcYMeans = m(:,2);
         bincounts = m(:,3);
@@ -514,6 +506,6 @@ iBinSize=g_iBinSize;
     set(hf, 'PaperUnits', 'inches');
     set(hf, 'PaperPosition', [0 0 2880 1620]/r); %x_width=10cm y_width=15cm
 
-    saveas(iBinSize, ['QnD_RvsRest_' MODE '_BinSize_' ...
+    saveas(hf, ['QnD_RvsRest_' MODE '_BinSize_' ...
         sprintf('%d', floor(curBinSize)) ...
         '_UsingSTA_' num2str(Simulation.UsingSTA)], 'png');

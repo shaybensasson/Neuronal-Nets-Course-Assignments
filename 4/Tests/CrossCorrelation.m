@@ -91,7 +91,8 @@ for i = 1:iteration
     hold off
     plot(iterationSteps(1:i),convolution(1:i),'Color','black','LineWidth',2); axis([1 iteration -100 3.1e3]);
     xlabel('t')
-    ylabel('(y1 * y2)(t) ')
+    %ylabel('(y1 * y2)(t) ')
+    ylabel('Convolution(y1, y2)(t) ')
     
     pause(0.05)
 end
