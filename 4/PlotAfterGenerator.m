@@ -4,7 +4,7 @@ ConstantsHeader();
 
 
 %choose Rep or NonRep
-MODE = 'NonRep';
+MODE = 'Rep';
 
 load(['MatFiles\AfterGenerator_' MODE '.mat'])
 

@@ -3,14 +3,15 @@ clearvars -except Sim_Rep Sim_NonRep;
 ConstantsHeader();
 
 %choose Rep or NonRep
-MODE = 'NonRep';
+MODE = 'Rep';
 UsingSTA = 1;
 
-load(['MatFiles\AfterSTA_' MODE '.mat'])
+load('MatFiles\AfterSTA_NonRep.mat') %we're using its STA
     
 switch MODE
     case 'Rep'
-        load('MatFiles\AfterSTA_NonRep.mat') %we're using its STA
+        STA_WINDOW_IN_TICKS = Sim_NonRep.STA_WINDOW_IN_TICKS;
+        load('MatFiles\PreProcessed_Rep.mat') %we're using its STA
         Simulation = Sim_Rep;
         clearvars Sim_Rep;
         StimTime = Simulation.StimTimeRep;
@@ -32,7 +33,6 @@ SECONDS_IN_TRAIL = Simulation.SECONDS_IN_TRAIL;
 TICKS_IN_TRAIL = Simulation.TICKS_IN_TRAIL;
 TICKS_IN_SECOND = Simulation.TICKS_IN_SECOND;
 
-STA_WINDOW_IN_TICKS = Simulation.STA_WINDOW_IN_TICKS;
 
 %store for later usage
 Simulation.Phase = CONSTANTS.PHASES.LINEARFILTER;
