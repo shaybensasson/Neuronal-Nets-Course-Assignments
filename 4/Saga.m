@@ -2,7 +2,7 @@ clc;
 clear all;
 close all;
 
-Preprocessing_NonRep;
+PreProcessing_NonRep;
 STASTCPhase;
 LinearFilterPhase;
 GeneratorPhase;
