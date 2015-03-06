@@ -3,7 +3,7 @@
 staMeanRep=[];
 staMeanNonRep=[];
 
-cell=1
+cell=2
 figure(5);%subplot(4,1,cell);
 time=.5;%sec
 a=0;
