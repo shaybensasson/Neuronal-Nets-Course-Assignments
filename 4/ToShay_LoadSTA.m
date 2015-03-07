@@ -4,7 +4,7 @@ close all;
 figure;
 
 for RepFlag=1:2 %1 Rep, 2 Non-Rep
-    cell=2;
+    cell=1;
 
     load(['MatFiles\STA_Cell_' num2str(cell) ...
         '_RepFlag_' num2str(RepFlag) '.mat']);
@@ -39,14 +39,13 @@ for RepFlag=1:2 %1 Rep, 2 Non-Rep
     
 end
 
+%% Linear filter phase
 TRAIL_IN_SECONDS = 100;
 TRAIL_IN_AP_TICKS = TRAIL_IN_SECONDS*AP_TICKS_PER_SECOND;
 TRAIL_IN_SIM_TICKS=TRAIL_IN_SECONDS*SIM_TICKS_PER_SECOND; %100 seconds (when we have 5000 per second)
 
-%% Linear filter phase
 %Normalizing by non-rep mean and max
-NormalizedStimuliRep=(StimulusNonRep-meanSTA_NonRep)/(maxSTA_NonRep);
-NormalizedStimuliNonRep=(StimulusRep-meanSTA_NonRep)/(maxSTA_NonRep);
+NormalizedStimuliNonRep=(StimulusNonRep-meanSTA_NonRep)/(maxSTA_NonRep);
 
 Filter = Normalized_STA_NonRep;
 block=zeros(2,4000); %range is big enough size for remap, can be 4k
@@ -60,8 +59,7 @@ Filter=fliplr(Filter'); %flips the window (because it's not a conv, it's a slidi
 %iterate in steps of 100-1 seconds on stims
 i = 0; %used for tracing
 %jumping in trails (actually starting a second before each trail starts)
-for t=LightChange(1):0:LightChange(1)
-%TODO:for t=LightChange(1):TRAIL_IN_SIM_TICKS-(1*SIM_TICKS_PER_SECOND):EndLoop 
+for t=LightChange(1):TRAIL_IN_SIM_TICKS-(1*SIM_TICKS_PER_SECOND):EndLoop 
     i=i+1;
     if (mod(i, 20)==0)
         fprintf('conving: %d/%d ...\n', round(t), EndLoop); %~
@@ -77,7 +75,7 @@ for t=LightChange(1):0:LightChange(1)
         * (1/STIMS_PER_SECOND);
     
     %get 100 seconds stims (appear every 1/30 sec) + 10 safety light changes (will be removed later)
-    NormalizedStimuliInTrail=NormalizedStimuliRep(idxLightChange+1:idxLightChange+LIGHT_CHANGES_IN_TRAIL+10);
+    NormalizedStimuliInTrail=NormalizedStimuliNonRep(idxLightChange+1:idxLightChange+LIGHT_CHANGES_IN_TRAIL+10);
     %smear the light changes
     NormalizedStimuliInTrail=repmat(NormalizedStimuliInTrail',ceil(STIMS_PER_SECOND_IN_TICKS),1);
     NormalizedStimuliInTrail=NormalizedStimuliInTrail(:);
@@ -142,20 +140,16 @@ legend( 'From RD', 'Fit' );%raw data
 
 %% using the stimulus rep
 
-N_stim=(StimulusRep-meanSTA_NonRep)/(maxSTA_NonRep);%normalized colors
-Filter= Normalized_STA_NonRep;
-sumAbsSTA=ones(1,5000)*(abs(Filter));
+NormalizedStimuliRep=(StimulusRep-meanSTA_NonRep)/(maxSTA_NonRep);%normalized by non rep params
 
-%X_ind=[];FR=[];xSTA=[];nStim=[]; %unused
 TRAIL_IN_SIM_TICKS=10*10000;%500000;
 EndLoop=floor(LightChangeRep(end)/TRAIL_IN_SIM_TICKS)*TRAIL_IN_SIM_TICKS;
 vec=[];
-Filter=fliplr(Filter');
 t=100*10000;
 
 idxLightChange=find(LightChangeRep<=t,1,'last');
 
-NormalizedStimuliInTrail=N_stim(idxLightChange+1:idxLightChange+round(TRAIL_IN_SIM_TICKS/10000*30)+10);%all colors in the current 5000 window
+NormalizedStimuliInTrail=NormalizedStimuliRep(idxLightChange+1:idxLightChange+round(TRAIL_IN_SIM_TICKS/10000*30)+10);%all colors in the current 5000 window
 NormalizedStimuliInTrail=repmat(NormalizedStimuliInTrail',ceil(10000/30),1);
 NormalizedStimuliInTrail=NormalizedStimuliInTrail(:);
 NormalizedStimuliInTrail(668:334*3:end)=[];
