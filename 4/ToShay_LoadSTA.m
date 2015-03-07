@@ -64,8 +64,7 @@ for t=LightChange(1):TRAIL_IN_SIM_TICKS-(1*SIM_TICKS_PER_SECOND):EndLoop
     if (mod(i, 20)==0)
         fprintf('conving: %d/%d ...\n', round(t), EndLoop); %~
     end
-    
-    %r=r+1; %TODO: unused
+        
     idxLightChange=find(LightChange<=t,1,'last'); %because we floored it, we look for the closest light change
     %we start right after
         
@@ -106,8 +105,8 @@ for t=LightChange(1):TRAIL_IN_SIM_TICKS-(1*SIM_TICKS_PER_SECOND):EndLoop
     SpikeTime=find(TTNonRep(1,iNeuron).sp>=shift+t+2499-SpikeLen/2 & TTNonRep(1,iNeuron).sp<shift+t+TRAIL_IN_SIM_TICKS-1-2500+SpikeLen/2);
     SpikeVec=zeros(1,TRAIL_IN_SIM_TICKS-SIM_TICKS_PER_SECOND+SpikeLen);
     SpikeVec(round(TTNonRep(1,iNeuron).sp(SpikeTime) -(shift+t+2499-SpikeLen/2)+1 ))=1;
-    gWinFilter=gausswin(SpikeLen);
-    SpikeRate=conv(gWinFilter,SpikeVec)/sum(gWinFilter);
+    gaussWinFilter=gausswin(SpikeLen);
+    SpikeRate=conv(gaussWinFilter,SpikeVec)/sum(gaussWinFilter);
     SpikeRate(1:SpikeLen)=[];
     SpikeRate(TRAIL_IN_SIM_TICKS-5000+SpikeLen-SpikeLen+1:end)=[];
     
@@ -139,62 +138,90 @@ ylabel('FR [Hz*10,000]');xlabel('Stim*STA');hold on
 legend( 'From RD', 'Fit' );%raw data
 
 %% using the stimulus rep
-
 NormalizedStimuliRep=(StimulusRep-meanSTA_NonRep)/(maxSTA_NonRep);%normalized by non rep params
 
-TRAIL_IN_SIM_TICKS=10*10000;%500000;
-EndLoop=floor(LightChangeRep(end)/TRAIL_IN_SIM_TICKS)*TRAIL_IN_SIM_TICKS;
-vec=[];
-t=100*10000;
+%OLD:TRAIL_IN_SIM_TICKS=10*10000;%500000;
+TRAIL_IN_SIM_TICKS = TRAIL_IN_SECONDS*SIM_TICKS_PER_SECOND; %100 seconds (when we have 5000 per second)
 
+EndLoop=floor(LightChangeRep(end)/TRAIL_IN_SIM_TICKS)*TRAIL_IN_SIM_TICKS; %takes only full light times (removes inbetween ticks)
+t=TRAIL_IN_SECONDS*AP_TICKS_PER_SECOND; %start after the first trail
 idxLightChange=find(LightChangeRep<=t,1,'last');
 
+LIGHT_CHANGES_IN_TRAIL = (TRAIL_IN_SECONDS*SIM_TIME_FACTOR) ...
+        * (1/STIMS_PER_SECOND);
+
+%get 100 seconds stims (appear every 1/30 sec) + 10 safety light changes (will be removed later)
+NormalizedStimuliInTrail=NormalizedStimuliRep(idxLightChange+1:idxLightChange+LIGHT_CHANGES_IN_TRAIL+10);
+
+%{
+OLD
+%get 100 seconds stims (appear every 1/30 sec) + 10 safety light changes (will be removed later)
 NormalizedStimuliInTrail=NormalizedStimuliRep(idxLightChange+1:idxLightChange+round(TRAIL_IN_SIM_TICKS/10000*30)+10);%all colors in the current 5000 window
-NormalizedStimuliInTrail=repmat(NormalizedStimuliInTrail',ceil(10000/30),1);
+%}
+
+%smear the light changes
+NormalizedStimuliInTrail=repmat(NormalizedStimuliInTrail',ceil(STIMS_PER_SECOND_IN_TICKS),1);
 NormalizedStimuliInTrail=NormalizedStimuliInTrail(:);
-NormalizedStimuliInTrail(668:334*3:end)=[];
-NormalizedStimuliInTrail(334:333+334*2:end)=[];
-toRemove=t-LightChangeRep(idxLightChange);
+    
+%Removes every stim suffix added due to ceil, expect the 3rd stim
+%suffix, because we assume it falls on an interger, see attached photo1
+NormalizedStimuliInTrail(ceil(STIMS_PER_SECOND_IN_TICKS)*2:ceil(STIMS_PER_SECOND_IN_TICKS)*3:end)=[]; %removes every 3rd stim suffix, from the 2nd stim suffix
+NormalizedStimuliInTrail(ceil(STIMS_PER_SECOND_IN_TICKS):(ceil(STIMS_PER_SECOND_IN_TICKS)-1)+ceil(STIMS_PER_SECOND_IN_TICKS)*2:end)=[]; %removes every 3rd stim suffix, from the 1st stim suffix
+    
+toRemove=t-LightChangeRep(idxLightChange); %get only trail data
 NormalizedStimuliInTrail(1:round(toRemove))=[];
 NormalizedStimuliInTrail(TRAIL_IN_SIM_TICKS+1:end)=[];
 
-Conv=conv(Filter,NormalizedStimuliInTrail)/sumAbsSTA;
-Conv(1:5000)=[];
-Conv(TRAIL_IN_SIM_TICKS-5000+1:end)=[];
+Conv=conv(Filter,NormalizedStimuliInTrail)/sumAbsSTA; %do the conv, and normalize by sum(abs(STA window))
+Conv(1:length(Filter))=[]; %throw a whole kernel window from start
+Conv(TRAIL_IN_SIM_TICKS-length(Filter)+1:end)=[]; %throw a whole kernel window from end
 StimXSta=Conv;
+%Execute the Non linear fit
 SimulatedFR=func(StimXSta);
 
-StimTime1=StimTimeRep(1:2:end);
+
+StimTimeRepFixed=StimTimeRep(1:2:end); %fix stimTimeRep to be 200 sec diff
 TT=TTRep;
-AP=[];
-r=1; %counts the stims
-row=[]; %TODO: unused
-for lo=StimTime1(1:end-1)';
+APTimesCrossTrails=[];
+countTrails=1; %counts the trails
+
+REP_TRAIL_IN_SECONDS = 200;
+REP_TRAIL_IN_AP_TICKS = REP_TRAIL_IN_SECONDS*AP_TICKS_PER_SECOND;
+
+for trialOnset=StimTimeRepFixed(1:end-1)';
     %locate trail
-    First=find(TT(1,iNeuron).sp>lo,1,'first');
-    Last=find(TT(1,iNeuron).sp<=lo+2000000,1,'last'); 
-    %set all its aps relative to the stimTime
-    AP(end+1:end+Last-First+1)=TT(1,iNeuron).sp(First:Last)-lo;
-    row(end+1:end+Last-First+1)=r; %TODO: unused
-    r=r+1; 
+    firstAP=find(TT(1,iNeuron).sp>trialOnset,1,'first');
+    lastAP=find(TT(1,iNeuron).sp<=trialOnset+REP_TRAIL_IN_AP_TICKS,1,'last'); 
+    %set all its aps times relative to the stimTime
+    APTimesCrossTrails(end+1:end+lastAP-firstAP+1)=TT(1,iNeuron).sp(firstAP:lastAP)-trialOnset;
+    countTrails=countTrails+1; 
 end
 
-nbin=20000;
-SpikeLen=10;
+TICKS_PER_BIN = 100;
+nbins=REP_TRAIL_IN_AP_TICKS/TICKS_PER_BIN; %100 ticks each bin
+SpikeLen=20; %how many spikes we consider 1 spike (smoothing), ORIGINAL=10
 figure;
 
-[y x]=hist(AP/10000,nbin);hold on
+[binCounts,xCenters]=hist(APTimesCrossTrails/AP_TICKS_PER_SECOND,nbins);
+hold on;
 
-yGauss=conv(gausswin(SpikeLen),y/r)/sum(gausswin(SpikeLen));%units:1/sample
-plot(x,yGauss(SpikeLen/2:end-SpikeLen/2),'r')
+gaussWinFilter=gausswin(SpikeLen);
+actualRate=conv(gaussWinFilter,binCounts/countTrails)/sum(gaussWinFilter);%units:1/sample
+%lowpassfilter: start after half a filter window and end before half
+%plot(xCenters,binCounts/countTrails); %actual spike train
+plot(xCenters,actualRate(SpikeLen/2:end-SpikeLen/2),'r'); 
+
+
 ylabel('FR [10,000*Hz]');
-xlim([t/10000 t/10000+10])
+xlim([t/AP_TICKS_PER_SECOND t/AP_TICKS_PER_SECOND+10]);
 
 hold on
-plot((0+[t+2500:t+TRAIL_IN_SIM_TICKS-2501])/10000,SimulatedFR*100,'k');
+shift=length(Filter)/2; %because it's a low pass filter, we must shift by half and reduce half at the end
+plot((0+(t+shift:t+TRAIL_IN_SIM_TICKS-(shift+1)))/AP_TICKS_PER_SECOND,SimulatedFR*100,'k');
 xlabel('Time [sec]');
 title(['Cell num. ' num2str(iNeuron)]);
 legend('PSTH','Simulated FR')
+
 
 %% STC
 
@@ -222,6 +249,3 @@ title(['Cell num. ' num2str(iNeuron)]);
 figure
 plot(V(:,200));
 title(['Cell num. ' num2str(iNeuron)]);
-
-load gong 
-sound(y,Fs)
