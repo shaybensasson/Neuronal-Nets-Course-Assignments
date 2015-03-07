@@ -102,13 +102,15 @@ for t=LightChange(1):TRAIL_IN_SIM_TICKS-(1*SIM_TICKS_PER_SECOND):EndLoop
     SpikeLen=1000;
     shift=length(Filter)/2; %because it's a low pass filter, we must shift by half and reduce half at the end
     %TODO: investigate, we might make simpler
-    SpikeTime=find(TTNonRep(1,iNeuron).sp>=shift+t+2499-SpikeLen/2 & TTNonRep(1,iNeuron).sp<shift+t+TRAIL_IN_SIM_TICKS-1-2500+SpikeLen/2);
+    SpikeTime=find(TTNonRep(1,iNeuron).sp>=shift+t+(shift-1)-SpikeLen/2 & ...
+        TTNonRep(1,iNeuron).sp<shift+t+TRAIL_IN_SIM_TICKS-1-shift+SpikeLen/2);
     SpikeVec=zeros(1,TRAIL_IN_SIM_TICKS-SIM_TICKS_PER_SECOND+SpikeLen);
-    SpikeVec(round(TTNonRep(1,iNeuron).sp(SpikeTime) -(shift+t+2499-SpikeLen/2)+1 ))=1;
+    SpikeVec(round(TTNonRep(1,iNeuron).sp(SpikeTime) - ...
+        (shift+t+(shift-1)-SpikeLen/2)+1 )) = 1;
     gaussWinFilter=gausswin(SpikeLen);
     SpikeRate=conv(gaussWinFilter,SpikeVec)/sum(gaussWinFilter);
     SpikeRate(1:SpikeLen)=[];
-    SpikeRate(TRAIL_IN_SIM_TICKS-5000+SpikeLen-SpikeLen+1:end)=[];
+    SpikeRate(TRAIL_IN_SIM_TICKS-length(Filter)+SpikeLen-SpikeLen+1:end)=[];
     
     %append rate for the corresponding X vals
     block(1,X_ind')= block(1,X_ind')+SpikeRate;
@@ -197,9 +199,11 @@ for trialOnset=StimTimeRepFixed(1:end-1)';
     countTrails=countTrails+1; 
 end
 
+%% plot
+
 TICKS_PER_BIN = 100;
 nbins=REP_TRAIL_IN_AP_TICKS/TICKS_PER_BIN; %100 ticks each bin
-SpikeLen=20; %how many spikes we consider 1 spike (smoothing), ORIGINAL=10
+SpikeLen=10; %how many spikes we consider 1 spike (smoothing), ORIGINAL=10
 figure;
 
 [binCounts,xCenters]=hist(APTimesCrossTrails/AP_TICKS_PER_SECOND,nbins);
@@ -208,24 +212,27 @@ hold on;
 gaussWinFilter=gausswin(SpikeLen);
 actualRate=conv(gaussWinFilter,binCounts/countTrails)/sum(gaussWinFilter);%units:1/sample
 %lowpassfilter: start after half a filter window and end before half
-%plot(xCenters,binCounts/countTrails); %actual spike train
-plot(xCenters,actualRate(SpikeLen/2:end-SpikeLen/2),'r'); 
+actualRate = actualRate(SpikeLen/2:end-SpikeLen/2);
 
+
+%plot(xCenters,binCounts/countTrails); %actual spike train
+plot(xCenters,actualRate,'r'); 
 
 ylabel('FR [10,000*Hz]');
 xlim([t/AP_TICKS_PER_SECOND t/AP_TICKS_PER_SECOND+10]);
 
 hold on
 shift=length(Filter)/2; %because it's a low pass filter, we must shift by half and reduce half at the end
-plot((0+(t+shift:t+TRAIL_IN_SIM_TICKS-(shift+1)))/AP_TICKS_PER_SECOND,SimulatedFR*100,'k');
+estRate = SimulatedFR*100;
+plot((0+(t+shift:t+TRAIL_IN_SIM_TICKS-(shift+1)))/AP_TICKS_PER_SECOND,estRate,'k');
 xlabel('Time [sec]');
 title(['Cell num. ' num2str(iNeuron)]);
 legend('PSTH','Simulated FR')
 
 
 %% STC
-
-A=downsample(Normalized_STA_Rep,25);%200 instead of 5000
+figure;
+A=downsample(Normalized_STA_Rep,DOWN_SAMPLE_EVERY_NTH);%200 instead of 5000
 N_spikes=size(accSTADS_NonRep,1);
 STC=1/(N_spikes-1)*((accSTADS_NonRep'-repmat(A,1,N_spikes))*...
     (accSTADS_NonRep'-repmat(A,1,N_spikes))');
@@ -237,6 +244,8 @@ grid off;shading flat
 set(gca,'view',[0 90])
 colorbar
 title(['Cell num. ' num2str(iNeuron)]);
+
+
 figure;
 
 plot(eig(STC),'.')
