@@ -4,7 +4,7 @@ ConstantsHeader();
 
 
 %choose Rep or NonRep
-MODE = 'Rep';
+MODE = 'NonRep';
 
 load(['MatFiles\AfterGenerator_' MODE '.mat'])
 
@@ -72,6 +72,18 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
             rateData(:,1)<=times(START_PLOT_FROM_INDEX)+LENGTH_OF_PLOT_IN_TICKS;
         binnedToPlot = rateData(xRateFilter, :);
         
+        %no negative rate
+        binnedToPlot(:,2) = binnedToPlot(:,2) + abs(min(binnedToPlot(:,2)));
+        
+        %shift when displaying, so there won't be negative rate
+        binnedToPlot(:,3) = binnedToPlot(:,3) + abs(min(binnedToPlot(:,3)));
+        binnedToPlot(:,3) = binnedToPlot(:,3)*max(binnedToPlot(:,2));
+        
+        %shift when displaying, so there won't be negative rate
+        binnedToPlot(:,4) = binnedToPlot(:,4) + abs(min(binnedToPlot(:,4)));
+        binnedToPlot(:,4) = binnedToPlot(:,4)*max(binnedToPlot(:,2));
+        binnedToPlot(:,4) = binnedToPlot(:,4)/2; %improves bind
+        
         psth = binnedToPlot(:,2);
         stimsAfterLinearFilter = binnedToPlot(:,3);
         stimsAfterGenerator = binnedToPlot(:,4);
@@ -87,8 +99,9 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
         [AX,H1,H2] = plotyy(times, stimValues, times, aps, 'plot', 'plot');
         %hold(AX(1));
         set(AX,'NextPlot','add')
-        H1.LineStyle = 'none'; H1.Marker = '.'; 
+        %H1.LineStyle = 'none'; H1.Marker = '.'; 
         H1.Color = COLOR_MAP(4, :);  
+        H1.Color(4) = 0.40; % 60% transparent 
         
         AX(1).YLim = [min(stimValues) max(stimValues)];
         AX(1).YColor = COLOR_MAP(4, :);
@@ -129,8 +142,8 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
         %G filter
         h = plot(AX(2), binnedToPlot(:,1), stimsAfterGenerator);
         h.Color = COLOR_MAP(2, :);
-        h.Color(4) = 0.70;  % 30% transparent
-        h.LineWidth = 1.5;
+        h.Color(4) = 0.60;  % 30% transparent
+        h.LineWidth = 1.2;
 
         legend('Raw stim values', ...
                 'Aps', ...
