@@ -4,7 +4,7 @@ ConstantsHeader();
 
 
 %choose Rep or NonRep
-MODE = 'Rep';
+MODE = 'NonRep';
 
 load(['MatFiles\AfterLinearFilter_' MODE '.mat'])
 
@@ -43,21 +43,24 @@ COLOR_MAP = COLOR_MAP./255;
 %iBinSize = 1;
 %iNeuron = 2;
 
-for iBinSize=1:1
-%TODO: for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
+%for iBinSize=1:1
+for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
     curBinSize = Simulation.RATE_BIN_SIZES(iBinSize);
     
     title = sprintf('Rate vs Linear Filter (%s), Bin size: %.2f, Using %s Filter', ...
         MODE, curBinSize, iif(Simulation.UsingSTA,'STA','STC'));
     
-    hf = figure(iBinSize);
-    hf.Name = title;
+    %hf = figure(iBinSize);
+    %hf.Name = title;
     
-    for iNeuron=2:2
-    %for iNeuron=1:NEURONS
+    %for iNeuron=1:1
+    for iNeuron=1:NEURONS
         %hs = subplot(2,2,iNeuron);
         
         %PositionOfSubplot = hs.Position;
+        
+        hf = figure;
+        hf.Name = title;
         
         curNeuron = Simulation.Neuron{iNeuron};
 
@@ -75,11 +78,13 @@ for iBinSize=1:1
             rateData(:,1)<=times(START_PLOT_FROM_INDEX)+LENGTH_OF_PLOT_IN_TICKS;
         binnedToPlot = rateData(xRateFilter, :);
         
+        %shift when displaying, so there won't be negative rate
+        binnedToPlot(:,3) = binnedToPlot(:,3) + abs(min(binnedToPlot(:,3)));
+        binnedToPlot(:,3) = binnedToPlot(:,3)*max(binnedToPlot(:,2));
+        
         psth = binnedToPlot(:,2);
         stimsAfterLinearFilter = binnedToPlot(:,3);
-        
-        
-
+       
         
         %bind aps to top
         minValue = min(min(binnedToPlot(:,2:3)));
@@ -91,11 +96,13 @@ for iBinSize=1:1
         [AX,H1,H2] = plotyy(times, stimValues, times, aps, 'plot', 'plot');
         %hold(AX(1));
         set(AX,'NextPlot','add')
-        H1.LineStyle = 'none'; H1.Marker = '.'; 
+        %H1.LineStyle = 'none'; H1.Marker = '.'; 
         H1.Color = COLOR_MAP(4, :);  
+        H1.Color(4) = 0.60; % 30% transparent 
         
         AX(1).YLim = [min(stimValues) max(stimValues)];
         AX(1).YColor = COLOR_MAP(4, :);
+        
         %AX(1).YTick = linspace(min(stimValues), max(stimValues), 5);
 
         H2.LineStyle = 'none'; H2.Marker = 'o';
@@ -103,6 +110,7 @@ for iBinSize=1:1
         
         AX(2).YLim = [minValue maxValue];
         AX(2).YColor = COLOR_MAP(1, :);
+        
         %AX(2).YTick = linspace(minValue, maxValue, 5);
         
 

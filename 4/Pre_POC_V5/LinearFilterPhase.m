@@ -3,7 +3,7 @@ clearvars -except Sim_Rep Sim_NonRep;
 ConstantsHeader();
 
 %choose Rep or NonRep
-MODE = 'Rep';
+MODE = 'NonRep';
 UsingSTA = 1;
 
 load('MatFiles\AfterSTA_NonRep.mat') %we're using its STA
@@ -36,9 +36,9 @@ TICKS_IN_SECOND = Simulation.TICKS_IN_SECOND;
 
 %store for later usage
 Simulation.Phase = CONSTANTS.PHASES.LINEARFILTER;
-Simulation.RATE_BIN_SIZES = [Simulation.STIMULUS_EACH_TICKS; ... %sampling freq
+Simulation.RATE_BIN_SIZES = [...
+             Simulation.STIMULUS_EACH_TICKS; ... %sampling freq
              Simulation.STIMULUS_EACH_TICKS*3; ... 100 msec          
-             Simulation.STIMULUS_EACH_TICKS*5; ... ~150 msec
          ];
      
 %Determines whether to use STA or STC filters

@@ -3,7 +3,7 @@ clearvars -except Sim_Rep Sim_NonRep;
 ConstantsHeader();
 
 %choose Rep or NonRep
-MODE = 'NonRep';
+MODE = 'Rep';
 
 load(['MatFiles\PreProcessed_' MODE '.mat'])
     
