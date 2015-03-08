@@ -53,8 +53,8 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
     %hf = figure(iBinSize);
     %hf.Name = title;
     
-    for iNeuron=1:1
-    %for iNeuron=1:NEURONS
+    %for iNeuron=1:1
+    for iNeuron=1:NEURONS
         %hs = subplot(2,2,iNeuron);
         
         %PositionOfSubplot = hs.Position;
@@ -77,9 +77,6 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
         xRateFilter = rateData(:,1)>=times(START_PLOT_FROM_INDEX) & ...
             rateData(:,1)<=times(START_PLOT_FROM_INDEX)+LENGTH_OF_PLOT_IN_TICKS;
         binnedToPlot = rateData(xRateFilter, :);
-        
-        %no negative rate
-        binnedToPlot(:,2) = binnedToPlot(:,2) + abs(min(binnedToPlot(:,2)));
         
         %shift when displaying, so there won't be negative rate
         binnedToPlot(:,3) = binnedToPlot(:,3) + abs(min(binnedToPlot(:,3)));
