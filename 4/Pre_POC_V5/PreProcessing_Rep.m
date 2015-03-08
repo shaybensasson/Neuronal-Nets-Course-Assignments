@@ -63,9 +63,12 @@ for iNeuron = 1:length(TTNonRep)
         stimValues = StimulusRep(1:STIMULI_PER_TRAIL,:);
 
         %Smoothen stim values on dataTicks
-        stimValues = repmat(stimValues,1,floor(STIMULUS_EACH_TICKS));
+        stimValues = repmat(stimValues,1,ceil(STIMULUS_EACH_TICKS));
         stimValues = stimValues';
         stimValues = stimValues(:);
+        
+        stimValues(ceil(STIMULUS_EACH_TICKS)*2:ceil(STIMULUS_EACH_TICKS)*3:end)=[];
+        stimValues(ceil(STIMULUS_EACH_TICKS):(ceil(STIMULUS_EACH_TICKS)-1)+ceil(STIMULUS_EACH_TICKS)*2:end)=[];
         
         %because of flooring we might have less data
         dataTicks = min(dataTicks,length(stimValues)); 

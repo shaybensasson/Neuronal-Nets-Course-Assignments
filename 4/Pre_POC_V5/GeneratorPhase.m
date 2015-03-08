@@ -2,7 +2,7 @@ close all;
 clearvars -except Sim_Rep Sim_NonRep;
 ConstantsHeader();
 
-%choose Rep or NonRep
+%always Non-Rep! use 'UseNonRepGeneratorPhase' for Rep
 MODE = 'NonRep';
 
 load(['MatFiles\AfterLinearFilter_' MODE '.mat'])
@@ -61,15 +61,17 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
         FIT_BIN_SIZE=0.1;
 
         %create nice looking numbers
-        firstBin = floor(min(XVals)*10)/10;
-        lastBin = ceil(max(XVals)*10)/10;
+        %firstBin = floor(min(XVals)*10)/10;
+        %lastBin = ceil(max(XVals)*10)/10;
+        firstBin = min(XVals);
+        lastBin = max(XVals);
 
         %put into bins
         bins = firstBin:FIT_BIN_SIZE:lastBin;
         [bincounts,binIndex] = histc(XVals,bins);
         
         %insert any unbinned data to last bin (we're gonna remove it later)
-        %binIndex(binIndex==0)=max(binIndex);
+        binIndex(binIndex==0)=max(binIndex);
 
         %group by mean
         funcXData = bins';
@@ -77,7 +79,7 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
 
         %remove empty/'zero' intesity buckets
         m = [funcXData funcYMeans bincounts];
-        %m = m(2:end-1, :); %throw first and last bins, really few stims there
+        m = m(2:end-1, :); %throw first and last bins, really few stims there
         m = m(~isnan(m(:,2)),:);
         
         funcXData = m(:,1);
@@ -97,15 +99,6 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
         
         rateData(:,4) = stimsAfterGenerator;
         curNeuron.Rate{iBinSize}.Data = rateData;
-        
-        %% create statistics
-                
-        %see http://www.mathworks.com/matlabcentral/answers/104189-calculate-sum-of-square-error
-        SSEk = norm(psth-stimsAfterLinearFilter,2)^2; %lower is less err
-        SSEg = norm(psth-stimsAfterGenerator,2)^2; %lower is less err
-                
-        curNeuron.Rate{iBinSize}.SSEk = SSEk;
-        curNeuron.Rate{iBinSize}.SSEg = SSEg;
         
         Simulation.Neuron{iNeuron} = curNeuron;    
     end %for iNeuron

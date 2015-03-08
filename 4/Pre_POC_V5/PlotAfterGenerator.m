@@ -40,22 +40,29 @@ COLOR_MAP = [43, 87, 154; ... %blue: 1
 COLOR_MAP = COLOR_MAP./255;
 
 
-%for iBinSize=1:1
-for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
+for iBinSize=2:2 %1000
+%TODO: for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
     curBinSize = Simulation.RATE_BIN_SIZES(iBinSize);
     
+    %{
     title = sprintf('R vs R_{Est} (%s), Bin size: %.2f, Using %s Filter', ...
         MODE, curBinSize, iif(Simulation.UsingSTA,'STA','STC'));
     
     hf = figure(iBinSize);
     hf.Name = title;
+    %}
     
     %for iNeuron=2:2
     for iNeuron=1:NEURONS
-        hs = subplot(2,2,iNeuron);
-        
-        PositionOfSubplot = hs.Position;
-        
+        title = sprintf('R vs R_{Est} (%s), Bin size: %.2f, N# %d', ...
+            MODE, curBinSize, iNeuron);
+    
+        hf = figure;
+        hf.Name = title;
+    
+        %hs = subplot(2,2,iNeuron);
+        %PositionOfSubplot = hs.Position;
+                
         curNeuron = Simulation.Neuron{iNeuron};
 
         data = curNeuron.Data;
@@ -152,9 +159,12 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
                     iif(Simulation.UsingSTA,'STA','STC')), ...
                 'After Generator');
         
-        %% fit measurement
-        SSEk = curNeuron.Rate{iBinSize}.SSEk; %lower is less err
-        SSEg = curNeuron.Rate{iBinSize}.SSEg; %lower is less err
+        
+        %% create statistics
+                
+        %see http://www.mathworks.com/matlabcentral/answers/104189-calculate-sum-of-square-error
+        SSEk = norm(psth-stimsAfterLinearFilter,2)^2; %lower is less err
+        SSEg = norm(psth-stimsAfterGenerator,2)^2; %lower is less err
                 
         %the similarity between two signals, we only need zero lag
         Cork = abs(xcorr(psth,stimsAfterLinearFilter,0,'coeff')); % 1 if are equal
@@ -163,7 +173,8 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
         yText = minValue-(minValue/10);
         
         
-        ha = axes('Position',PositionOfSubplot,'Xlim',[0 1],'Ylim',[0 1],'Box','off','Visible','off','Units','normalized', 'clipping' , 'off');
+        %ha = axes('Xlim',[0 1],'Ylim',[0 1],'Box','off','Visible','off','Units','normalized', 'clipping' , 'off');
+        ha = axes('Xlim',[0 1],'Ylim',[0 1],'Box','off','Visible','off','Units','normalized', 'clipping' , 'off');
         
         text(0, 0.05, ...
             sprintf(['SSE after %s kernel: %.2f;\nSSE after Generator: %.2f;\n' ...
@@ -172,19 +183,30 @@ for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
                 SSEk, SSEg, Cork, Corg), ...
         'HorizontalAlignment' ,'left','VerticalAlignment', 'bottom');
         
-        
+         CreateTitleForSubplots(['\bf ' title]);
+    
+        r = 150; %pixels pre inch
+        set(hf, 'PaperUnits', 'inches');
+        set(hf, 'PaperPosition', [0 0 2880 1620]/r); %x_width=10cm y_width=15cm
+
+        saveas(hf, ['RvsRest_' MODE '_BinSize_' ...
+            sprintf('%d', floor(curBinSize)) ...
+            '_N_' num2str(iNeuron)], 'png');
     end %iNeuron
     
+    %{
     CreateTitleForSubplots(['\bf ' title]);
     
     r = 150; %pixels pre inch
     set(hf, 'PaperUnits', 'inches');
     set(hf, 'PaperPosition', [0 0 2880 1620]/r); %x_width=10cm y_width=15cm
 
+    
     saveas(hf, ['RvsRest_' MODE '_BinSize_' ...
         sprintf('%d', floor(curBinSize)) ...
         '_UsingSTA_' num2str(Simulation.UsingSTA)], 'png');
-    
+    %}
+
  end %iBinSize
  
     

@@ -2,7 +2,7 @@ close all;
 clearvars -except Sim_Rep Sim_NonRep;
 ConstantsHeader();
 
-%MODE is alway Rep here
+%MODE is always Rep here
 MODE = 'Rep';
 
 load('MatFiles\AfterGenerator_NonRep.mat')
@@ -76,4 +76,5 @@ if (SAVE_MAT_FILE)
     save(['MatFiles\AfterGenerator_' MODE '.mat'], ['Sim_' MODE], '-v7.3');
 end
         
-beep('on');
+load gong 
+sound(y,Fs)

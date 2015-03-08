@@ -12,11 +12,13 @@ switch MODE
         Simulation = Sim_Rep;
         clearvars Sim_Rep;
         StimTime = Simulation.StimTimeRep;
+        CREATE_STC = 0;
         
     case 'NonRep'
         Simulation = Sim_NonRep;
         clearvars Sim_NonRep;
         StimTime = Simulation.StimTimeNonRep;
+        CREATE_STC = 1;
         
     otherwise
         ME = MException('noSuchMODE', ...
@@ -25,7 +27,7 @@ switch MODE
 end
 
 SAVE_MAT_FILE = 1;
-CREATE_STC = 1;
+
 
 NEURONS=length(Simulation.Neuron); 
 

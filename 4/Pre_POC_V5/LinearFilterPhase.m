@@ -3,7 +3,7 @@ clearvars -except Sim_Rep Sim_NonRep;
 ConstantsHeader();
 
 %choose Rep or NonRep
-MODE = 'NonRep';
+MODE = 'Rep';
 UsingSTA = 1;
 
 load('MatFiles\AfterSTA_NonRep.mat') %we're using its STA
