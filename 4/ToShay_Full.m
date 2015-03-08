@@ -23,7 +23,8 @@ SIM_TICKS_PER_SECOND = SIM_TIME_FACTOR*AP_TICKS_PER_SECOND;
 STA_WINDOW_LENGTH_IN_SEC = 1;
 STA_WINDOW_LENGTH = STA_WINDOW_LENGTH_IN_SEC*SIM_TICKS_PER_SECOND;
 
-DOWN_SAMPLE_TO_N_STIMS = 200;
+%DOWN_SAMPLE_TO_N_STIMS = 200;
+DOWN_SAMPLE_TO_N_STIMS = SIM_TICKS_PER_SECOND; %No DS
 %down sampling every 25 idxs = 200 light stims
 DOWN_SAMPLE_EVERY_NTH = SIM_TICKS_PER_SECOND/DOWN_SAMPLE_TO_N_STIMS; 
 SIM_TICKS_PER_SECOND_DS = SIM_TICKS_PER_SECOND/DOWN_SAMPLE_EVERY_NTH;
@@ -111,7 +112,7 @@ for RepFlag=1:2 %1 Rep, 2 Non-Rep
     end
 
     save(['MatFiles\STA_Cell_' num2str(iNeuron) ...
-        '_RepFlag_' num2str(RepFlag) '.mat']);
+        '_RepFlag_' num2str(RepFlag) '.mat'], '-v7.3');
     
     %normalize
     STA=accSTA/countSpikes;
