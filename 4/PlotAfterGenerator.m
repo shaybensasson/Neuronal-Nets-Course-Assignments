@@ -40,8 +40,8 @@ COLOR_MAP = [43, 87, 154; ... %blue: 1
 COLOR_MAP = COLOR_MAP./255;
 
 
-for iBinSize=2:2 %1000
-%TODO: for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
+%for iBinSize=2:2 %1000
+for iBinSize=1:numel(Simulation.RATE_BIN_SIZES)
     curBinSize = Simulation.RATE_BIN_SIZES(iBinSize);
     
     %{

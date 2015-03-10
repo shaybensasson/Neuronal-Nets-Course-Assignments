@@ -37,8 +37,8 @@ TICKS_IN_SECOND = Simulation.TICKS_IN_SECOND;
 %store for later usage
 Simulation.Phase = CONSTANTS.PHASES.LINEARFILTER;
 Simulation.RATE_BIN_SIZES = [...
-             Simulation.STIMULUS_EACH_TICKS; ... %sampling freq
-             Simulation.STIMULUS_EACH_TICKS*3; ... 100 msec          
+             %Simulation.STIMULUS_EACH_TICKS; ... %sampling freq
+             Simulation.STIMULUS_EACH_TICKS*3; ... 100 msec, 1000 ticks          
          ];
      
 %Determines whether to use STA or STC filters

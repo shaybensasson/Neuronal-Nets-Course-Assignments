@@ -18,7 +18,7 @@ STIMULI_PER_TRAIL = SECONDS_IN_TRAIL / STIMULI_PER_SECOND; %3000 stims for 100 s
 
 %throw 30 secs on the begining of each iteration, malformed data
 TICKS_TO_THROW = 30 * TICKS_IN_SECOND;
-
+asdfasd
 NEURONS = length(TTNonRep);
 ITERATIONS = length(StimTimeNonRep); %NOTE: each ITERATION is different bulk (non-repeating trail)
 ITERATIONS = ITERATIONS-2; %we ignore the last 2 chunks because it has partial stimuli values
